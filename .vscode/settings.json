@@ -1,0 +1,4 @@
+{
+    "appService.defaultWebAppToDeploy": "/subscriptions/8e7714ae-8873-43b3-87ba-f810262d5bc9/resourceGroups/wealth-assistant_group/providers/Microsoft.Web/sites/wealth-assistant",
+    "appService.deploySubpath": "."
+}
