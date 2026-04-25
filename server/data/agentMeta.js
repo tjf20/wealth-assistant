@@ -8,7 +8,7 @@ const AGENT_META = {
     {
       id: "ag-01", name: "Portfolio Financials Intelligence", type: "agent",
       icon: "BarChart2", color: "blue",
-      desc: "Realized gains, tax lots, holdings & financial analysis",
+      desc: "Realized gains, tax lots, holdings & activity",
       subs: "sub-ag-01", runnable: true, lastRun: "14 min ago", lastRunState: "done",
     },
     {

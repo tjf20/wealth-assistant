@@ -16,31 +16,37 @@ function getIcon(name) { return ICONS[name] || LayoutGrid; }
 
 // ── Color palette ─────────────────────────────────────────────────────────────
 const COLOR = {
-  blue:   { bg: "#0e1e38", border: "#1a3a6a", text: "#6fa3ef", dot: "#2a6dd9" },
-  teal:   { bg: "#0a2420", border: "#1a5a46", text: "#1d9e75", dot: "#1d9e75" },
-  amber:  { bg: "#1e1404", border: "#4a3010", text: "#c88030", dot: "#ba7517" },
-  purple: { bg: "#16112e", border: "#3a2a6a", text: "#8a72dd", dot: "#6a52cd" },
-  coral:  { bg: "#1e100a", border: "#5a2a1a", text: "#d07050", dot: "#d85a30" },
+  blue:   { bg: "#0e1e38", border: "#2a4a8a", text: "#7db8ff", dot: "#3a7de9" },
+  teal:   { bg: "#0a2820", border: "#1a6a50", text: "#2dbe8a", dot: "#2dbe8a" },
+  amber:  { bg: "#221800", border: "#5a3a10", text: "#e09040", dot: "#d08020" },
+  purple: { bg: "#180f30", border: "#4a3080", text: "#a882ff", dot: "#7a5aed" },
+  coral:  { bg: "#221008", border: "#6a3020", text: "#f07850", dot: "#e06030" },
 };
 const TYPE_COLOR = {
-  agent:    { bg: "#0e1e38", text: "#4a8fd4" },
-  workflow: { bg: "#0a2420", text: "#1d9e75" },
-  prompt:   { bg: "#16112e", text: "#8a72dd" },
-  custom:   { bg: "#1e1404", text: "#c88030" },
+  agent:    { bg: "#152640", border: "#2a4a8a", text: "#7db8ff" },
+  workflow: { bg: "#0a2820", border: "#1a6a50", text: "#2dbe8a" },
+  prompt:   { bg: "#1e1240", border: "#4a3080", text: "#a882ff" },
+  custom:   { bg: "#2a1e00", border: "#5a3a10", text: "#e09040" },
 };
 
 // ── Small shared components ───────────────────────────────────────────────────
 function TypeBadge({ type }) {
   const c = TYPE_COLOR[type] || TYPE_COLOR.agent;
-  return <span style={{ fontSize: 9, fontWeight: 600, letterSpacing: "0.07em", textTransform: "uppercase", padding: "3px 7px", borderRadius: 4, background: c.bg, color: c.text }}>{type}</span>;
+  return (
+    <span style={{
+      fontSize: 10, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase",
+      padding: "3px 8px", borderRadius: 4,
+      background: c.bg, color: c.text, border: `1px solid ${c.border}`,
+    }}>{type}</span>
+  );
 }
 
 function IconBox({ name, color }) {
   const Icon = getIcon(name);
   const c = COLOR[color] || COLOR.blue;
   return (
-    <div style={{ width: 38, height: 38, borderRadius: 10, flexShrink: 0, background: c.bg, border: `1px solid ${c.border}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <Icon size={17} color={c.text} />
+    <div style={{ width: 42, height: 42, borderRadius: 10, flexShrink: 0, background: c.bg, border: `1px solid ${c.border}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <Icon size={20} color={c.text} />
     </div>
   );
 }
@@ -72,10 +78,10 @@ function AgentCard({ item, onDrill, onRun, isRunning }) {
       <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
         <IconBox name={item.icon} color={item.color} />
         <div style={{ flex: 1, paddingRight: item.runnable ? 24 : 0 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: "#d8dae6", lineHeight: 1.35, fontFamily: "'Syne', sans-serif", marginBottom: 3 }}>{item.name}</div>
-          <div style={{ fontSize: 11, color: "#4a4d5a", lineHeight: 1.5 }}>{item.desc}</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: "#eceef5", lineHeight: 1.35, fontFamily: "'Syne', sans-serif", marginBottom: 4 }}>{item.name}</div>
+          <div style={{ fontSize: 12, color: "#8a8fa8", lineHeight: 1.55 }}>{item.desc}</div>
           {item.lastRun && (
-            <div style={{ fontSize: 9, marginTop: 4, color: item.lastRunState === "running" ? "#2a6dd9" : "#1a6a4a" }}>
+            <div style={{ fontSize: 10, marginTop: 5, fontWeight: 500, color: item.lastRunState === "running" ? "#3a7de9" : "#2dbe8a" }}>
               {item.lastRunState === "running" ? "● running now" : `✓ ran ${item.lastRun}`}
             </div>
           )}
@@ -123,7 +129,7 @@ function MentionPopup({ visible, pos, onClose }) {
     <>
       <div onClick={onClose} style={{ position: "absolute", inset: 0, zIndex: 45 }} />
       <div style={{ position: "absolute", left: pos.x, top: pos.y, background: "#13151e", border: "1px solid #2a3a60", borderRadius: 8, padding: 6, zIndex: 50, width: 200, boxShadow: "0 8px 24px rgba(0,0,0,0.5)" }}>
-        <div style={{ fontSize: 10, color: "#4a4d5a", padding: "4px 6px 6px", textTransform: "uppercase", letterSpacing: "0.07em" }}>Select Client</div>
+        <div style={{ fontSize: 10, color: "#7a7e94", padding: "4px 6px 6px", textTransform: "uppercase", letterSpacing: "0.07em" }}>Select Client</div>
         {clients.map(c => (
           <div key={c.name} onClick={onClose} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", borderRadius: 5, cursor: "pointer", fontSize: 12, color: "#9aa3c0" }}
             onMouseEnter={e => e.currentTarget.style.background = "#1a2540"}
@@ -133,7 +139,7 @@ function MentionPopup({ visible, pos, onClose }) {
             {c.name}
           </div>
         ))}
-        <div style={{ fontSize: 11, color: "#4a6090", padding: "6px 8px", borderTop: "1px solid #1a1d28", marginTop: 2, cursor: "pointer" }}>Search all clients ↗</div>
+        <div style={{ fontSize: 12, color: "#7a90c0", padding: "6px 8px", borderTop: "1px solid #1a1d28", marginTop: 2, cursor: "pointer" }}>Search all clients ↗</div>
       </div>
     </>
   );
@@ -167,23 +173,23 @@ function ResultsDrawer({ open, onClose, jobId }) {
       <div style={{ padding: "14px 16px", borderBottom: "1px solid #1e2029", display: "flex", alignItems: "center", gap: 10 }}>
         <div style={{ flex: 1 }}>
           <div style={{ fontFamily: "'Syne', sans-serif", fontSize: 14, fontWeight: 600, color: "#d8dae6" }}>{data.agentName} — Results</div>
-          <div style={{ fontSize: 10, color: "#4a4d5a", marginTop: 2 }}>
+          <div style={{ fontSize: 11, color: "#8a8fa8", marginTop: 3 }}>
             {data.summary.accountsAnalyzed} accounts · {data.summary.opportunitiesFound} opportunities · Est. savings ${data.summary.estimatedTaxSavings.toLocaleString()}
           </div>
         </div>
-        <button onClick={onClose} style={{ width: 26, height: 26, borderRadius: 6, background: "#1a1d28", border: "1px solid #1e2029", color: "#5a5d6a", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><X size={12} /></button>
+        <button onClick={onClose} style={{ width: 26, height: 26, borderRadius: 6, background: "#1a1d28", border: "1px solid #1e2029", color: "#8a8fa8", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><X size={12} /></button>
       </div>
       <div style={{ flex: 1, overflowY: "auto", padding: 16 }}>
-        <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "#4a4d5a", marginBottom: 8 }}>Opportunities</div>
+        <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "#7a7e94", marginBottom: 8 }}>Opportunities</div>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
-          <thead><tr>{["Client","Security","Unrealized Loss","Action"].map(h => <th key={h} style={{ textAlign: "left", color: "#5a5d6a", fontWeight: 500, padding: "5px 8px", borderBottom: "1px solid #1e2029" }}>{h}</th>)}</tr></thead>
+          <thead><tr>{["Client","Security","Unrealized Loss","Action"].map(h => <th key={h} style={{ textAlign: "left", color: "#8a8fa8", fontWeight: 500, padding: "5px 8px", borderBottom: "1px solid #1e2029" }}>{h}</th>)}</tr></thead>
           <tbody>
             {data.rows.map((row, i) => (
               <tr key={i}>
                 <td style={{ padding: "6px 8px", color: "#9aa3c0", borderBottom: "1px solid #131620" }}>{row.client}</td>
                 <td style={{ padding: "6px 8px", color: "#9aa3c0", borderBottom: "1px solid #131620" }}>{row.security}</td>
                 <td style={{ padding: "6px 8px", color: "#d85a30", borderBottom: "1px solid #131620" }}>${Math.abs(row.unrealizedLoss).toLocaleString()}</td>
-                <td style={{ padding: "6px 8px", color: row.action === "Harvest" ? "#6fa3ef" : "#5a5d6a", borderBottom: "1px solid #131620" }}>{row.action}</td>
+                <td style={{ padding: "6px 8px", color: row.action === "Harvest" ? "#6fa3ef" : "#8a8fa8", borderBottom: "1px solid #131620" }}>{row.action}</td>
               </tr>
             ))}
           </tbody>
@@ -191,7 +197,7 @@ function ResultsDrawer({ open, onClose, jobId }) {
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 16, marginBottom: 16 }}>
           {[["Total Harvestable", `-$${(29350).toLocaleString()}`, "#d85a30"], ["Est. Tax Savings", `+$${data.summary.estimatedTaxSavings.toLocaleString()}`, "#1d9e75"]].map(([label, val, color]) => (
             <div key={label} style={{ background: "#0f1014", border: "1px solid #1e2029", borderRadius: 8, padding: 10 }}>
-              <div style={{ fontSize: 10, color: "#4a4d5a", marginBottom: 4 }}>{label}</div>
+              <div style={{ fontSize: 10, color: "#7a7e94", marginBottom: 4 }}>{label}</div>
               <div style={{ fontSize: 20, fontWeight: 600, color }}>{val}</div>
             </div>
           ))}
@@ -206,22 +212,22 @@ function ResultsDrawer({ open, onClose, jobId }) {
 
 // ── Activity Rail ─────────────────────────────────────────────────────────────
 function ActivityRail({ jobs }) {
-  const stateColor = { running: "#2a6dd9", done: "#1d9e75", queued: "#3a3d50", failed: "#d85a30" };
+  const stateColor = { running: "#3a7de9", done: "#2dbe8a", queued: "#6a5acd", failed: "#e06030" };
   const statusStyle = { running: { bg: "#0e1e38", color: "#4a8fd4", label: "Running" }, done: { bg: "#0a2420", color: "#1d9e75", label: "View Results →" }, queued: { bg: "#16112e", color: "#6a5acd", label: "Queued" }, failed: { bg: "#1e100a", color: "#d07050", label: "Failed" } };
 
-  if (!jobs.length) return <div style={{ fontSize: 12, color: "#4a4d5a" }}>No recent activity.</div>;
+  if (!jobs.length) return <div style={{ fontSize: 12, color: "#7a7e94" }}>No recent activity.</div>;
 
   return (
     <div>
-      <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: "#4a4d5a", marginBottom: 10 }}>Recent & Running</div>
+      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#8a8fa8", marginBottom: 12 }}>Recent & Running</div>
       {jobs.map((job, i) => {
         const s = statusStyle[job.status] || statusStyle.queued;
         return (
           <div key={job.jobId} style={{ display: "flex", gap: 10, padding: "10px 0", borderBottom: i < jobs.length - 1 ? "1px solid #1a1d28" : "none" }}>
             <div style={{ width: 8, height: 8, borderRadius: "50%", background: stateColor[job.status] || "#3a3d50", flexShrink: 0, marginTop: 4 }} />
             <div>
-              <div style={{ fontSize: 12, color: "#c8cad4", fontWeight: 500 }}>{job.agentName}</div>
-              <div style={{ fontSize: 10, color: "#4a4d5a", marginTop: 2 }}>{job.startedAt ? new Date(job.startedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "Queued"}</div>
+              <div style={{ fontSize: 13, color: "#dde0f0", fontWeight: 600 }}>{job.agentName}</div>
+              <div style={{ fontSize: 11, color: "#8a8fa8", marginTop: 3 }}>{job.startedAt ? new Date(job.startedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "Queued"}</div>
               <span style={{ fontSize: 9, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", padding: "2px 6px", borderRadius: 3, marginTop: 4, display: "inline-block", background: s.bg, color: s.color }}>{s.label}</span>
             </div>
           </div>
@@ -247,15 +253,15 @@ function ChatRail({ advisorName }) {
     <div style={{ display: "flex", flexDirection: "column", height: "100%", gap: 8 }}>
       <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8, overflowY: "auto" }}>
         {messages.map((m, i) => (
-          <div key={i} style={{ padding: "8px 10px", borderRadius: 8, fontSize: 12, lineHeight: 1.5, maxWidth: "90%", alignSelf: m.role === "user" ? "flex-end" : "flex-start", background: m.role === "user" ? "#0e1e38" : "#13151e", color: m.role === "user" ? "#9ab8e0" : "#9aa3c0", border: `1px solid ${m.role === "user" ? "#1a3060" : "#1e2029"}` }}>
+          <div key={i} style={{ padding: "8px 10px", borderRadius: 8, fontSize: 12, lineHeight: 1.5, maxWidth: "90%", alignSelf: m.role === "user" ? "flex-end" : "flex-start", background: m.role === "user" ? "#0e1e38" : "#13151e", color: m.role === "user" ? "#b8d0f0" : "#b0b8d0", border: `1px solid ${m.role === "user" ? "#1a3060" : "#1e2029"}` }}>
             {m.content}
           </div>
         ))}
-        {loading && <div style={{ fontSize: 11, color: "#4a4d5a", padding: "4px 0" }}>Thinking…</div>}
+        {loading && <div style={{ fontSize: 11, color: "#7a7e94", padding: "4px 0" }}>Thinking…</div>}
       </div>
       <div style={{ borderTop: "1px solid #1a1d28", paddingTop: 8, display: "flex", flexDirection: "column", gap: 3 }}>
         {quickPrompts.map((p, i) => (
-          <div key={i} onClick={() => send(p)} style={{ fontSize: 11, color: "#4a6090", cursor: "pointer", padding: "3px 0" }}
+          <div key={i} onClick={() => send(p)} style={{ fontSize: 12, color: "#7a90c0", cursor: "pointer", padding: "3px 0" }}
             onMouseEnter={e => e.currentTarget.style.color = "#6fa3ef"}
             onMouseLeave={e => e.currentTarget.style.color = "#4a6090"}
           >▸ {p}</div>
@@ -278,11 +284,11 @@ function InsightsRail() {
   ];
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-      <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: "#4a4d5a", marginBottom: 2 }}>Book of Business</div>
+      <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: "#7a7e94", marginBottom: 2 }}>Book of Business</div>
       {insights.map((c, i) => (
         <div key={i} style={{ background: "#0f1014", border: "1px solid #1e2029", borderRadius: 8, padding: 12 }}>
-          <div style={{ fontSize: 11, color: "#d0d2db", fontWeight: 600, marginBottom: 4 }}>{c.title}</div>
-          <div style={{ fontSize: 11, color: "#6a7090", lineHeight: 1.6 }}>{c.body}</div>
+          <div style={{ fontSize: 12, color: "#dde0f0", fontWeight: 600, marginBottom: 4 }}>{c.title}</div>
+          <div style={{ fontSize: 12, color: "#9096b0", lineHeight: 1.6 }}>{c.body}</div>
           <button style={{ marginTop: 8, padding: "4px 10px", borderRadius: 6, border: "1px solid #1a3a6a", background: "#0e1e38", color: "#6fa3ef", fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>{c.action}</button>
         </div>
       ))}
@@ -376,12 +382,12 @@ export default function WealthAssistant({ agentData }) {
             <div style={{ width: 28, height: 28, background: "linear-gradient(135deg,#2a6dd9,#1a4fa3)", borderRadius: 7, display: "flex", alignItems: "center", justifyContent: "center" }}>
               <Zap size={14} color="#fff" />
             </div>
-            <span style={{ fontFamily: "'Syne', sans-serif", fontSize: 13, fontWeight: 700, color: "#f0f1f3", letterSpacing: "0.01em" }}>Wealth Assistant</span>
+            <span style={{ fontFamily: "arial, sans-serif", fontSize: 15, fontWeight: 700, color: "#f0f1f3", letterSpacing: "0.01em" }}>Wealth Assistant</span>
           </div>
           <div style={{ flex: 1, padding: "12px 8px", display: "flex", flexDirection: "column", gap: 2 }}>
-            <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: "#4a4d5a", padding: "10px 10px 4px" }}>Workspace</div>
+            <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: "#7a7e94", padding: "10px 10px 4px" }}>Workspace</div>
             {navItems.map((nav, i) => (
-              <div key={i} onClick={nav.onClick} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 7, cursor: "pointer", color: nav.active ? "#6fa3ef" : "#8a8d99", background: nav.active ? "#1a2540" : "transparent", transition: "all 0.15s" }}
+              <div key={i} onClick={nav.onClick} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 7, cursor: "pointer", color: nav.active ? "#7db8ff" : "#aab0c8", background: nav.active ? "#1a2540" : "transparent", transition: "all 0.15s" }}
                 onMouseEnter={e => { if (!nav.active) e.currentTarget.style.background = "#181a22"; }}
                 onMouseLeave={e => { if (!nav.active) e.currentTarget.style.background = "transparent"; }}
               >
@@ -396,7 +402,7 @@ export default function WealthAssistant({ agentData }) {
               <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#1a3a6a", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 600, color: "#6fa3ef", flexShrink: 0 }}>JM</div>
               <div>
                 <div style={{ fontSize: 12, fontWeight: 500, color: "#d0d2db" }}>{advisorName}</div>
-                <div style={{ fontSize: 10, color: "#5a5d6a" }}>Senior Advisor</div>
+                <div style={{ fontSize: 10, color: "#8a8fa8" }}>Senior Advisor</div>
               </div>
             </div>
           </div>
@@ -407,25 +413,25 @@ export default function WealthAssistant({ agentData }) {
 
           {/* TOPBAR */}
           <div style={{ height: 52, borderBottom: "1px solid #1e2029", display: "flex", alignItems: "center", padding: "0 20px", gap: 12, background: "#0c0d11", flexShrink: 0 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#5a5d6a", flex: 1 }}>
-              <Home size={12} style={{ cursor: "pointer", color: "#5a5d6a" }} onClick={() => navigateTo(0)} />
+            <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#8a8fa8", flex: 1 }}>
+              <Home size={12} style={{ cursor: "pointer", color: "#8a8fa8" }} onClick={() => navigateTo(0)} />
               {stack.map((s, i) => (
                 <span key={i} style={{ display: "flex", alignItems: "center", gap: 6 }}>
                   {i > 0 && <ChevronRight size={10} color="#2e3040" />}
-                  <span onClick={() => navigateTo(i)} style={{ cursor: i === stack.length - 1 ? "default" : "pointer", color: i === stack.length - 1 ? "#c8cad4" : "#5a5d6a" }}>{s.title}</span>
+                  <span onClick={() => navigateTo(i)} style={{ cursor: i === stack.length - 1 ? "default" : "pointer", color: i === stack.length - 1 ? "#dde0f0" : "#9096b0" }}>{s.title}</span>
                 </span>
               ))}
             </div>
             {!isPromptView && (
               <div style={{ display: "flex", gap: 6 }}>
                 {["all","agent","workflow","prompt","custom"].map(f => (
-                  <button key={f} onClick={() => setFilter(f)} style={{ padding: "5px 12px", borderRadius: 20, border: `1px solid ${filter === f ? "#2a4070" : "#1e2029"}`, background: filter === f ? "#1a2540" : "transparent", color: filter === f ? "#6fa3ef" : "#6a6d7a", fontSize: 11, cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s" }}>
+                  <button key={f} onClick={() => setFilter(f)} style={{ padding: "5px 12px", borderRadius: 20, border: `1px solid ${filter === f ? "#2a4070" : "#1e2029"}`, background: filter === f ? "#1a2540" : "transparent", color: filter === f ? "#6fa3ef" : "#9096b0", fontSize: 11, cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s" }}>
                     {f.charAt(0).toUpperCase() + f.slice(1)}
                   </button>
                 ))}
               </div>
             )}
-            <div onClick={() => setDrawerOpen(true)} style={{ position: "relative", width: 32, height: 32, borderRadius: 8, border: "1px solid #1e2029", background: "#13151e", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#6a6d7a" }}>
+            <div onClick={() => setDrawerOpen(true)} style={{ position: "relative", width: 32, height: 32, borderRadius: 8, border: "1px solid #1e2029", background: "#13151e", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#9096b0" }}>
               <Bell size={14} />
               {activeCount > 0 && <div style={{ position: "absolute", top: -3, right: -3, width: 14, height: 14, borderRadius: "50%", background: "#2a6dd9", border: "2px solid #0c0d11", fontSize: 8, fontWeight: 700, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center" }}>{activeCount}</div>}
             </div>
@@ -437,8 +443,8 @@ export default function WealthAssistant({ agentData }) {
             {/* GRID */}
             <div style={{ flex: 1, overflowY: "auto", padding: 20 }}>
               <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 16 }}>
-                <div style={{ fontFamily: "'Syne', sans-serif", fontSize: 16, fontWeight: 700, color: "#e8e9eb" }}>{stack[stack.length - 1].title}</div>
-                <div style={{ fontSize: 11, color: "#4a4d5a" }}>{stack[stack.length - 1].sub}</div>
+                <div style={{ fontFamily: "'Syne', sans-serif", fontSize: 18, fontWeight: 700, color: "#eceef5" }}>{stack[stack.length - 1].title}</div>
+                <div style={{ fontSize: 12, color: "#8a8fa8" }}>{stack[stack.length - 1].sub}</div>
               </div>
 
               {isPromptView ? (
@@ -448,7 +454,7 @@ export default function WealthAssistant({ agentData }) {
                     <button onClick={() => handleRun({ id: currentKey, name: stack[stack.length - 1].title })} style={{ flex: 1, padding: "9px 16px", borderRadius: 6, border: "1px solid #1a3a6a", background: "#0e1e38", color: "#6fa3ef", fontSize: 12, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
                       <Play size={11} /> Run Full Workflow
                     </button>
-                    <button style={{ padding: "9px 16px", borderRadius: 6, border: "1px solid #1e2029", background: "transparent", color: "#6a6d7a", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>
+                    <button style={{ padding: "9px 16px", borderRadius: 6, border: "1px solid #1e2029", background: "transparent", color: "#9096b0", fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>
                       Run for One Client
                     </button>
                   </div>
@@ -464,7 +470,7 @@ export default function WealthAssistant({ agentData }) {
             <div style={{ width: 264, minWidth: 264, borderLeft: "1px solid #1e2029", background: "#0c0d11", display: "flex", flexDirection: "column" }}>
               <div style={{ display: "flex", borderBottom: "1px solid #1e2029", flexShrink: 0 }}>
                 {[["activity","Activity"],["chat","Quick Chat"],["insights","Insights"]].map(([key, label]) => (
-                  <div key={key} onClick={() => setRailTab(key)} style={{ flex: 1, padding: "10px 4px", textAlign: "center", fontSize: 11, color: railTab === key ? "#6fa3ef" : "#5a5d6a", borderBottom: `2px solid ${railTab === key ? "#2a6dd9" : "transparent"}`, cursor: "pointer", transition: "all 0.15s" }}>{label}</div>
+                  <div key={key} onClick={() => setRailTab(key)} style={{ flex: 1, padding: "10px 4px", textAlign: "center", fontSize: 11, color: railTab === key ? "#7db8ff" : "#9096b0", borderBottom: `2px solid ${railTab === key ? "#3a7de9" : "transparent"}`, cursor: "pointer", transition: "all 0.15s" }}>{label}</div>
                 ))}
               </div>
               <div style={{ flex: 1, overflowY: "auto", padding: 14, display: "flex", flexDirection: "column" }}>
