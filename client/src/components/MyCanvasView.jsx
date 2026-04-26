@@ -266,7 +266,7 @@ function BookOfBusinessCard({ onNavigate }) {
         <SectionLabel label="AUM Breakdown" />
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
           <StatTile label="Managed" value="$3.34B" sub="60.4% of book" color={C.teal} />
-          <StatTile label="Custody" value="$2.19B" sub="39.6% of book" color={C.blue} />
+          <StatTile label="Cash" value="$2.19B" sub="39.6% of book" color={C.blue} />
           <StatTile label="Idle Cash" value="$1.69B" sub="CMA accounts" color={C.amber}
             onClick={() => onNavigate("sub-ag-02", "ag-02", "My Clients & Prospects")} />
         </div>
@@ -418,7 +418,7 @@ function InvestmentInsightsCard({ onNavigate }) {
             onClick={() => onNavigate("prompts-101", "ag-01", "Portfolio Financials Intelligence")} />
           <RecommendationRow icon={Activity} color={C.blue}
             label="Transition to managed solutions"
-            sub="$1.69B in custody accounts eligible for advisory shift"
+            sub="$1.69B cash accounts eligible for advisory shift"
             onClick={() => onNavigate("sub-302", "ag-03", "Investment Agent")} />
         </div>
       </div>

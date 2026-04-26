@@ -211,7 +211,7 @@ function AccountsDrawer({ client, open, onClose, onAddToProject }) {
                     </td>
                     <td style={{ padding: "9px 12px", borderBottom: i < accounts.length - 1 ? `1px solid ${C.border}` : "none", textAlign: "center" }}>
                       <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 4, background: acct.cm === "M" ? C.blueBg : C.surface2, color: acct.cm === "M" ? C.blue : C.textMuted, border: `1px solid ${acct.cm === "M" ? C.blueBorder : C.border}` }}>
-                        {acct.cm === "M" ? "Managed" : "Custody"}
+                        {acct.cm === "M" ? "Managed" : "Cash"}
                       </span>
                     </td>
                     <td style={{ padding: "9px 12px", borderBottom: i < accounts.length - 1 ? `1px solid ${C.border}` : "none", color: acct.managedPledged ? C.amber : C.textDim, fontSize: 11 }}>
