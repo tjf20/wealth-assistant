@@ -67,11 +67,11 @@ const AGENT_META = {
     { id: "sub-103", name: "Holdings Audit", type: "workflow", icon: "FileText", color: "blue", desc: "Full holdings with cost basis and tax lot detail", subs: null, runnable: true },
   ],
   "prompts-101": [
-    { id: "p1", type: "prompt", label: "Step 1", instruction: "Search for @Client or @Accounts from the Finder Agent." },
+    { id: "p1", type: "prompt", label: "Step 1", instruction: "Search for @client, using the @agent." },
     { id: "p2", type: "prompt", label: "Step 2", instruction: "Get the latest Realized Gain/Loss information from the CF Agent." },
     { id: "p3", type: "prompt", label: "Step 3", instruction: "Get the latest Holdings including tax lots information from the CF Agent." },
     { id: "p4", type: "prompt", label: "Step 4", instruction: "Send the output of steps 2 and 3 to the Investment Agent." },
-    { id: "p5", type: "prompt", label: "Step 5", instruction: "Publish the results to @Results or @Favorites or @email." },
+    { id: "p5", type: "prompt", label: "Step 5", instruction: "Publish the results to my @activity." },
   ],
 
   "sub-ag-02": [
