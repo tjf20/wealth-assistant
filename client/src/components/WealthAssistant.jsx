@@ -12,6 +12,9 @@ import { useChat } from "../hooks/useChat.js";
 import MyClientsView from "./MyClientsView";
 import clientsData from "../data/clients.json";
 
+// ── CHANGE 1: Add import at top (after MyClientsView import) ─────────────────
+import MyCanvasView from "./MyCanvasView";
+
 // ── Icon registry ─────────────────────────────────────────────────────────────
 const ICONS = { Users, BarChart2, TrendingUp, Map, UserPlus, Gift, Cloud, Activity, Briefcase, FileText, Clock, Send, Search, Star, LayoutGrid, Bell, Zap };
 function getIcon(name) { return ICONS[name] || LayoutGrid; }
@@ -536,7 +539,8 @@ function RightRail({ railTab, setRailTab, jobs, advisorName, onMentionClick, pro
 export default function WealthAssistant({ agentData }) {
   const advisorName = "James Miller";
 console.log(agentData);
-  const [navView, setNavView]           = useState("dashboard");
+  //const [navView, setNavView]           = useState("dashboard");
+  const [navView, setNavView] = useState("canvas");
   const [stack, setStack]               = useState([{ key: "root", title: "Agent Workspace", sub: "hover a card to run, click to explore" }]);
   const [filter, setFilter]             = useState("agent");
   const [runningIds, setRunningIds]     = useState({});
@@ -676,28 +680,35 @@ const filteredItems = filter === "all"
     showToast(`${total} item${total !== 1 ? "s" : ""} added to context — open Quick Chat to run an agent`);
   }
 */
-  const navItems = [
-    {
-      icon: LayoutGrid,
-      label: "Dashboard",
-      active: navView === "dashboard",
-      onClick: () => {
-        setNavView("dashboard");
-        setStack([{ key: "root", title: "Agent Workspace", sub: "hover a card to run, click to explore" }]);
-        setFilter("agent");
-      },
+ const navItems = [
+  {
+    icon: LayoutGrid,
+    label: "My Canvas",
+    active: navView === "canvas",
+    onClick: () => setNavView("canvas"),
+  },
+  {
+    icon: Zap,
+    label: "Agent Workspace",
+    active: navView === "dashboard",
+    onClick: () => {
+      setNavView("dashboard");
+      setStack([{ key: "root", title: "Agent Workspace", sub: "hover a card to run, click to explore" }]);
+      setFilter("agent");
     },
-    {
-      icon: Users,
-      label: "My Clients",
-      active: navView === "clients",
-      onClick: () => setNavView("clients"),
-    },
-    { icon: FileText,  label: "My Agents"                        },
-    { icon: BarChart2, label: "Reports"                          },
-    { icon: Clock,     label: "Activity", badge: activeCount || null },
-    { icon: Settings,  label: "Settings"                         },
-  ];
+  },
+  {
+    icon: Users,
+    label: "My Clients",
+    active: navView === "clients",
+    onClick: () => setNavView("clients"),
+  },
+  { icon: FileText,  label: "My Agents"                            },
+  { icon: BarChart2, label: "Reports"                              },
+  { icon: Clock,     label: "Activity", badge: activeCount || null },
+  { icon: Settings,  label: "Settings"                             },
+];
+
 
   return (
     <>
@@ -751,19 +762,21 @@ const filteredItems = filter === "all"
           <div style={{ height: 52, borderBottom: "1px solid #1e2029", display: "flex", alignItems: "center", padding: "0 24px", gap: 12, background: "#0c0d11", flexShrink: 0 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, flex: 1 }}>
               <Home size={13} style={{ cursor: "pointer", color: "#8a8fa8" }} onClick={() => { setNavView("dashboard"); navigateTo(0); }} />
-              {navView === "clients" ? (
-                <span style={{ color: "#dde0f0", fontWeight: 500 }}>My Clients</span>
-              ) : (
-                stack.map((s, i) => (
-                  <span key={i} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    {i > 0 && <ChevronRight size={11} color="#3a3d50" />}
-                    <span onClick={() => navigateTo(i)} style={{ cursor: i === stack.length - 1 ? "default" : "pointer", color: i === stack.length - 1 ? "#dde0f0" : "#8a8fa8", fontWeight: i === stack.length - 1 ? 500 : 400 }}>
-                      {s.title}
+             {navView === "canvas" ? (
+                  <span style={{ color: "#dde0f0", fontWeight: 500 }}>My Canvas</span>
+                ) : navView === "clients" ? (
+                  <span style={{ color: "#dde0f0", fontWeight: 500 }}>My Clients</span>
+                ) : (
+                  stack.map((s, i) => (
+                    <span key={i} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      {i > 0 && <ChevronRight size={11} color="#3a3d50" />}
+                      <span onClick={() => navigateTo(i)} style={{ cursor: i === stack.length - 1 ? "default" : "pointer", color: i === stack.length - 1 ? "#dde0f0" : "#8a8fa8", fontWeight: i === stack.length - 1 ? 500 : 400 }}>
+                        {s.title}
+                      </span>
                     </span>
-                  </span>
-                ))
-              )}
-            </div>
+                  ))
+                )}
+              </div>
             <div onClick={() => setDrawerOpen(true)} style={{ position: "relative", width: 32, height: 32, borderRadius: 8, border: "1px solid #1e2029", background: "#13151e", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#9096b0" }}>
               <Bell size={14} />
               {activeCount > 0 && <div style={{ position: "absolute", top: -3, right: -3, width: 14, height: 14, borderRadius: "50%", background: "#3a7de9", border: "2px solid #0c0d11", fontSize: 8, fontWeight: 700, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center" }}>{activeCount}</div>}
@@ -773,86 +786,172 @@ const filteredItems = filter === "all"
           {/* WORKSPACE BODY */}
           <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
 
-            {navView === "clients" ? (
-              <>
-                <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
-                  <MyClientsView
-                    allClients={clientsData}
-                    onSendToAgent={handleSendToAgent}
-                  />
-                </div>
-                <RightRail
-                    railTab={railTab}
-                    setRailTab={setRailTab}
-                    jobs={jobs}
-                    advisorName={advisorName}
-                    onMentionClick={openMention}
-                    projectContext={projectContext}
-                  />
-              </>
-            ) : (
-              <>
-                {/* DASHBOARD GRID */}
-                <div style={{ flex: 1, overflowY: "auto", padding: "20px 24px" }}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
-                    <div>
-                      <div style={{ fontSize: 18, fontWeight: 700, color: "#eceef5" }}>{stack[stack.length - 1].title}</div>
-                      <div style={{ fontSize: 12, color: "#8a8fa8", marginTop: 2 }}>{stack[stack.length - 1].sub}</div>
-                    </div>
-                    {!isPromptView && (
-                      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                        {FILTERS.map(f => (
-                          <button key={f.key} onClick={() => setFilter(f.key)} style={{
-                            padding: "6px 14px", borderRadius: 20,
-                            border: `1px solid ${filter === f.key ? "#2a5090" : "#2a2d3a"}`,
-                            background: filter === f.key ? "#152640" : "transparent",
-                            color: filter === f.key ? "#7db8ff" : "#9096b0",
-                            fontSize: 12, fontWeight: filter === f.key ? 600 : 400,
-                            cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s",
-                          }}>
-                            {f.label}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+            {navView === "canvas" ? (
+  <>
+    <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+      <MyCanvasView
+        onNavigateToAgent={(subKey, agentId, agentName) => {
+          // Navigate to Agent Workspace and drill into the correct workflow
+          setNavView("dashboard");
 
-                  {isPromptView ? (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth: 640 }}>
-                      {items.map(item => <PromptStep key={item.id} item={item} onMentionClick={openMention} />)}
-                      <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
-                        <button onClick={() => handleRun({ id: currentKey, name: stack[stack.length - 1].title })}
-                          style={{ flex: 1, padding: "9px 16px", borderRadius: 6, border: "1px solid #2a4a8a", background: "#0e1e38", color: "#7db8ff", fontSize: 13, cursor: "pointer", fontFamily: "inherit", fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-                          <Play size={12} /> Run Full Workflow
-                        </button>
-                        <button style={{ padding: "9px 16px", borderRadius: 6, border: "1px solid #2a2d3a", background: "transparent", color: "#9096b0", fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>
-                          Run for One Client
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
-                      {filteredItems.map(item => <AgentCard key={item.id} item={item} onDrill={handleDrill} onRun={handleRun} isRunning={!!runningIds[item.id]} />)}
-                      {filteredItems.length === 0 && (
-                        <div style={{ gridColumn: "span 3", fontSize: 13, color: "#7a7e94", padding: "40px 0", textAlign: "center" }}>
-                          No {filter === "all" ? "items" : `${filter}s`} at this level.
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
+          // Find which top-level agent owns this sub
+          const parentMap = {
+            "sub-ag-01": "ag-01", "sub-ag-02": "ag-02", "sub-ag-03": "ag-03",
+            "sub-ag-04": "ag-04", "sub-ag-05": "ag-05", "sub-ag-06": "ag-06",
+            "sub-ag-07": "ag-07", "sub-ag-08": "ag-08", "sub-ag-09": "ag-09",
+          };
 
-                {/* RIGHT RAIL */}
-                <RightRail
-                  railTab={railTab}
-                  setRailTab={setRailTab}
-                  jobs={jobs}
-                  advisorName={advisorName}
-                  onMentionClick={openMention}
-                  projectContext={projectContext}
-                />
-              </>
-            )}
+          // Build the drill-down stack
+          // subKey might be a sub-ag-XX (one level) or sub-XXX / prompts-XXX (two levels)
+          const isDirectSub = subKey.startsWith("sub-ag-");
+          const isWorkflow  = subKey.startsWith("sub-") && !isDirectSub;
+          const isPrompt    = subKey.startsWith("prompts-");
+
+          if (isDirectSub) {
+            // Drill one level: root → agent sub-list
+            const agentItem = agentData["root"]?.find(a => a.id === agentId);
+            setStack([
+              { key: "root",  title: "Agent Workspace", sub: "hover a card to run, click to explore" },
+              { key: subKey,  title: agentName,          sub: `${agentData[subKey]?.length || 0} workflows` },
+            ]);
+          } else if (isWorkflow || isPrompt) {
+            // Find the parent sub-ag key by searching agentData
+            let parentSubKey = null;
+            let parentAgentName = agentName;
+            for (const [key, items] of Object.entries(agentData)) {
+              if (key.startsWith("sub-ag-") && Array.isArray(items)) {
+                if (items.some(i => i.subs === subKey || i.id === subKey.replace("prompts-", "sub-").replace(/\d+/, m => m))) {
+                  parentSubKey = key;
+                  break;
+                }
+              }
+            }
+
+            // Find which workflow item has this subs value
+            let workflowItem = null;
+            let workflowSubKey = null;
+            for (const [key, items] of Object.entries(agentData)) {
+              if (key.startsWith("sub-ag-") && Array.isArray(items)) {
+                const found = items.find(i => i.subs === subKey || i.id === subKey);
+                if (found) {
+                  workflowItem = found;
+                  workflowSubKey = key;
+                  break;
+                }
+              }
+            }
+
+            if (workflowItem && workflowSubKey) {
+              const targetKey  = workflowItem.subs || workflowItem.id;
+              const isPromptV  = targetKey?.startsWith("prompts-");
+              setStack([
+                { key: "root",         title: "Agent Workspace", sub: "hover a card to run, click to explore" },
+                { key: workflowSubKey, title: agentName,          sub: `${agentData[workflowSubKey]?.length || 0} workflows` },
+                { key: targetKey,      title: workflowItem.name,  sub: isPromptV ? `${agentData[targetKey]?.length || 0} steps · review and run the workflow` : workflowItem.desc },
+              ]);
+            } else {
+              // Fallback: just go to the sub-list
+              const parentKey = Object.keys(parentMap).find(k => parentMap[k] === agentId) || `sub-${agentId.replace("ag-","ag-0")}`;
+              setStack([
+                { key: "root",    title: "Agent Workspace", sub: "hover a card to run, click to explore" },
+                { key: parentKey, title: agentName,          sub: `${agentData[parentKey]?.length || 0} workflows` },
+              ]);
+            }
+          }
+
+          setFilter("all");
+        }}
+      />
+    </div>
+    <RightRail
+      railTab={railTab}
+      setRailTab={setRailTab}
+      jobs={jobs}
+      advisorName={advisorName}
+      onMentionClick={openMention}
+      projectContext={projectContext}
+    />
+  </>
+
+) : navView === "clients" ? (
+  <>
+    <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+      <MyClientsView
+        allClients={clientsData}
+        onSendToAgent={handleSendToAgent}
+      />
+    </div>
+    <RightRail
+      railTab={railTab}
+      setRailTab={setRailTab}
+      jobs={jobs}
+      advisorName={advisorName}
+      onMentionClick={openMention}
+      projectContext={projectContext}
+    />
+  </>
+
+) : (
+  <>
+    <div style={{ flex: 1, overflowY: "auto", padding: "20px 24px" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
+        <div>
+          <div style={{ fontSize: 18, fontWeight: 700, color: "#eceef5" }}>{stack[stack.length - 1].title}</div>
+          <div style={{ fontSize: 12, color: "#8a8fa8", marginTop: 2 }}>{stack[stack.length - 1].sub}</div>
+        </div>
+        {!isPromptView && (
+          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+            {FILTERS.map(f => (
+              <button key={f.key} onClick={() => setFilter(f.key)} style={{
+                padding: "6px 14px", borderRadius: 20,
+                border: `1px solid ${filter === f.key ? "#2a5090" : "#2a2d3a"}`,
+                background: filter === f.key ? "#152640" : "transparent",
+                color: filter === f.key ? "#7db8ff" : "#9096b0",
+                fontSize: 12, fontWeight: filter === f.key ? 600 : 400,
+                cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s",
+              }}>
+                {f.label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {isPromptView ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth: 640 }}>
+          {items.map(item => <PromptStep key={item.id} item={item} onMentionClick={openMention} />)}
+          <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+            <button onClick={() => handleRun({ id: currentKey, name: stack[stack.length - 1].title })}
+              style={{ flex: 1, padding: "9px 16px", borderRadius: 6, border: "1px solid #2a4a8a", background: "#0e1e38", color: "#7db8ff", fontSize: 13, cursor: "pointer", fontFamily: "inherit", fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+              <Play size={12} /> Run Full Workflow
+            </button>
+            <button style={{ padding: "9px 16px", borderRadius: 6, border: "1px solid #2a2d3a", background: "transparent", color: "#9096b0", fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>
+              Run for One Client
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
+          {filteredItems.map(item => <AgentCard key={item.id} item={item} onDrill={handleDrill} onRun={handleRun} isRunning={!!runningIds[item.id]} />)}
+          {filteredItems.length === 0 && (
+            <div style={{ gridColumn: "span 3", fontSize: 13, color: "#7a7e94", padding: "40px 0", textAlign: "center" }}>
+              No {filter === "all" ? "items" : `${filter}s`} at this level.
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+    <RightRail
+      railTab={railTab}
+      setRailTab={setRailTab}
+      jobs={jobs}
+      advisorName={advisorName}
+      onMentionClick={openMention}
+      projectContext={projectContext}
+    />
+  </>
+)}
+
           </div>
         </div>
 
