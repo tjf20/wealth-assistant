@@ -590,7 +590,7 @@ export default function WealthAssistant({ agentData }) {
             <div style={{ width: 28, height: 28, background: "linear-gradient(135deg,#2a6dd9,#1a4fa3)", borderRadius: 7, display: "flex", alignItems: "center", justifyContent: "center" }}>
               <Zap size={14} color="#fff" />
             </div>
-            <span style={{ fontSize: 13, fontWeight: 700, color: "#f0f1f3", letterSpacing: "0.01em" }}>Wealth Assistant</span>
+            <span style={{ fontSize: 16, fontWeight: 700, color: "#f0f1f3", letterSpacing: "0.01em" }}>Wealth Assistant</span>
           </div>
           <div style={{ flex: 1, padding: "12px 8px", display: "flex", flexDirection: "column", gap: 2 }}>
             <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#7a7e94", padding: "10px 10px 4px" }}>Workspace</div>
