@@ -9,6 +9,8 @@ import {
 import { api } from "../api.js";
 import { useActivity } from "../hooks/useActivity.js";
 import { useChat } from "../hooks/useChat.js";
+import MyClientsView from "./MyClientsView";
+import clientsData from "../data/clients.json";
 
 // ── Icon registry ─────────────────────────────────────────────────────────────
 const ICONS = { Users, BarChart2, TrendingUp, Map, UserPlus, Gift, Cloud, Activity, Briefcase, FileText, Clock, Send, Search, Star, LayoutGrid, Bell, Zap };
@@ -30,8 +32,6 @@ const TYPE_COLOR = {
 };
 
 // ── @Mention variable registry ────────────────────────────────────────────────
-// Each key maps to a variable type. Add new types here freely.
-// The popup reads the @Token name to know which list to show.
 const MENTION_REGISTRY = {
   Client: {
     label: "Select a Client",
@@ -115,11 +115,10 @@ const MENTION_REGISTRY = {
       { id: "s-005", label: "BOND",  sub: "PIMCO Active Bond",  initials: "BO" },
       { id: "s-006", label: "SPY",   sub: "S&P 500 ETF",        initials: "SP" },
     ],
-    searchAll: "Search all securities u2197",
+    searchAll: "Search all securities ↗",
   },
 };
 
-// Resolve which mention type from a raw "@Token" string (case-insensitive fallback)
 function resolveMentionType(token) {
   const key = token.replace(/^@/, "").trim();
   if (MENTION_REGISTRY[key]) return key;
@@ -127,7 +126,7 @@ function resolveMentionType(token) {
   return Object.keys(MENTION_REGISTRY).find(k => k.toLowerCase() === lower) || null;
 }
 
-// ── Filter bar config — no "Prompt", default "agent" ─────────────────────────
+// ── Filter bar config ─────────────────────────────────────────────────────────
 const FILTERS = [
   { key: "agent",    label: "Agents"    },
   { key: "workflow", label: "Workflows" },
@@ -172,14 +171,12 @@ function MentionPopup({ state, onSelect, onClose }) {
         width: 250, boxShadow: "0 12px 32px rgba(0,0,0,0.6)",
         animation: "fadeIn 0.12s ease",
       }}>
-        {/* Header */}
         <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 8px 8px", borderBottom: "1px solid #1e2029", marginBottom: 4 }}>
           <Icon size={12} color={config?.color || "#7a7e94"} />
           <span style={{ fontSize: 11, fontWeight: 700, color: config?.color || "#7a7e94", textTransform: "uppercase", letterSpacing: "0.07em" }}>
             {config ? config.label : `Unknown: ${state.token}`}
           </span>
         </div>
-        {/* Items */}
         {config ? config.items.map(item => (
           <div key={item.id} onClick={() => onSelect(state.token, item)}
             style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 8px", borderRadius: 6, cursor: "pointer", transition: "background 0.1s" }}
@@ -197,7 +194,6 @@ function MentionPopup({ state, onSelect, onClose }) {
         )) : (
           <div style={{ padding: 8, fontSize: 12, color: "#7a7e94" }}>No options configured for {state.token}</div>
         )}
-        {/* Search all */}
         {config?.searchAll && (
           <div onClick={onClose} style={{ fontSize: 12, color: "#7db8ff", padding: "8px 8px 4px", borderTop: "1px solid #1e2029", marginTop: 4, cursor: "pointer" }}>
             {config.searchAll}
@@ -209,10 +205,8 @@ function MentionPopup({ state, onSelect, onClose }) {
 }
 
 // ── Prompt Step ───────────────────────────────────────────────────────────────
-// Splits on single-word @Tokens only (no spaces), tracks resolved state per token index.
 function PromptStep({ item, onMentionClick }) {
   const [resolved, setResolved] = useState({});
-  // Match @Word (single word, no spaces — avoids grabbing extra text)
   const parts = item.instruction.split(/(@\w+)/g);
 
   function handleTokenClick(e, token, idx) {
@@ -233,13 +227,11 @@ function PromptStep({ item, onMentionClick }) {
           if (!part.startsWith("@")) return <span key={idx}>{part}</span>;
           const res = resolved[idx];
           return res ? (
-            // Resolved — dotted-underline hyperlink chip, re-clickable to change
             <span key={idx} onClick={e => handleTokenClick(e, part, idx)} title="Click to change"
               style={{ display: "inline-flex", alignItems: "center", gap: 3, background: "#0a2820", color: "#2dbe8a", border: "1px solid #1a6a50", borderRadius: 5, padding: "1px 8px", fontSize: 12, fontWeight: 600, cursor: "pointer", margin: "0 2px", textDecoration: "underline", textDecorationStyle: "dotted", textUnderlineOffset: 3 }}>
               @{res.label}
             </span>
           ) : (
-            // Unresolved — blue variable placeholder
             <span key={idx} onClick={e => handleTokenClick(e, part, idx)} title={`Click to select ${part}`}
               style={{ display: "inline-flex", alignItems: "center", gap: 3, background: "#0e1e38", color: "#7db8ff", border: "1px solid #2a4a8a", borderRadius: 5, padding: "1px 8px", fontSize: 12, fontWeight: 600, cursor: "pointer", margin: "0 2px" }}>
               {part}
@@ -373,29 +365,24 @@ function ActivityRail({ jobs }) {
   );
 }
 
-// ── Chat Rail with @mention support ──────────────────────────────────────────
+// ── Chat Rail ─────────────────────────────────────────────────────────────────
 function ChatRail({ advisorName, onMentionClick }) {
   const { messages, loading, send } = useChat({ advisorName });
   const [input, setInput] = useState("");
   const textareaRef = useRef(null);
 
-  // Quick prompts — plain text segments and @Token chips interleaved
-  // Each prompt is a string; @Word tokens render as clickable chips
   const quickPrompts = [
     "Clients with available cash today",
     "Which clients hold @security?",
     "Prepare client review for @Client",
   ];
 
-  // Parse a prompt string into segments: { text } or { token }
   function parsePrompt(str) {
     return str.split(/(@\w+)/g).map(part =>
       part.startsWith("@") ? { token: part } : { text: part }
     );
   }
 
-  // When a @token chip in a quick prompt is clicked, open the mention picker.
-  // On selection, copy the resolved prompt text to the input box.
   function handleQuickPromptTokenClick(e, promptStr, token) {
     e.stopPropagation();
     onMentionClick(e, token, (selectedItem) => {
@@ -443,14 +430,12 @@ function ChatRail({ advisorName, onMentionClick }) {
             <span style={{ marginRight: 2 }}>▸</span>
             {parsePrompt(prompt).map((seg, j) =>
               seg.token ? (
-                // @Token chip — clicking opens the mention picker and copies resolved prompt to input
                 <span key={j}
                   onClick={e => handleQuickPromptTokenClick(e, prompt, seg.token)}
                   style={{ display: "inline-flex", alignItems: "center", background: "#0e1e38", color: "#7db8ff", border: "1px solid #2a4a8a", borderRadius: 4, padding: "0 6px", fontSize: 11, fontWeight: 600, cursor: "pointer", lineHeight: "18px" }}>
                   {seg.token}
                 </span>
               ) : (
-                // Plain text — clicking sends the whole prompt as-is
                 <span key={j} onClick={() => send(prompt)} style={{ cursor: "pointer" }}
                   onMouseEnter={e => e.currentTarget.style.color = "#7db8ff"}
                   onMouseLeave={e => e.currentTarget.style.color = "#7a90c0"}
@@ -496,20 +481,41 @@ function InsightsRail() {
   );
 }
 
-// ── Main WealthAssistant ───────────────────────────────────────────────────────
+// ── Right Rail (shared between dashboard and clients views) ───────────────────
+function RightRail({ railTab, setRailTab, jobs, advisorName, onMentionClick }) {
+  return (
+    <div style={{ width: 264, minWidth: 264, borderLeft: "1px solid #1e2029", background: "#0c0d11", display: "flex", flexDirection: "column" }}>
+      <div style={{ display: "flex", borderBottom: "1px solid #1e2029", flexShrink: 0 }}>
+        {[["activity","Activity"],["chat","Quick Chat"],["insights","Insights"]].map(([key, label]) => (
+          <div key={key} onClick={() => setRailTab(key)}
+            style={{ flex: 1, padding: "11px 4px", textAlign: "center", fontSize: 12, fontWeight: railTab === key ? 600 : 400, color: railTab === key ? "#7db8ff" : "#9096b0", borderBottom: `2px solid ${railTab === key ? "#3a7de9" : "transparent"}`, cursor: "pointer", transition: "all 0.15s" }}>
+            {label}
+          </div>
+        ))}
+      </div>
+      <div style={{ flex: 1, overflowY: "auto", padding: 14, display: "flex", flexDirection: "column" }}>
+        {railTab === "activity" && <ActivityRail jobs={jobs} />}
+        {railTab === "chat"     && <ChatRail advisorName={advisorName} onMentionClick={onMentionClick} />}
+        {railTab === "insights" && <InsightsRail />}
+      </div>
+    </div>
+  );
+}
+
+// ── Main WealthAssistant ──────────────────────────────────────────────────────
 export default function WealthAssistant({ agentData }) {
   const advisorName = "James Miller";
 
-  const [stack, setStack]           = useState([{ key: "root", title: "Agent Workspace", sub: "hover a card to run, click to explore" }]);
-  const [filter, setFilter]         = useState("agent");
-  const [runningIds, setRunningIds] = useState({});
-  const [railTab, setRailTab]       = useState("activity");
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [activeJobId, setActiveJobId] = useState("job-demo-2");
-  const [toast, setToast]           = useState(null);
-  const shellRef                    = useRef(null);
+  const [navView, setNavView]           = useState("dashboard");
+  const [stack, setStack]               = useState([{ key: "root", title: "Agent Workspace", sub: "hover a card to run, click to explore" }]);
+  const [filter, setFilter]             = useState("agent");
+  const [runningIds, setRunningIds]     = useState({});
+  const [railTab, setRailTab]           = useState("activity");
+  const [drawerOpen, setDrawerOpen]     = useState(false);
+  const [activeJobId, setActiveJobId]   = useState("job-demo-2");
+  const [toast, setToast]               = useState(null);
+  const shellRef                        = useRef(null);
 
-  // Unified mention popup — one instance shared by PromptStep and ChatRail
   const [mentionState, setMentionState] = useState({
     visible: false, x: 0, y: 0, token: null, callback: null,
   });
@@ -519,11 +525,10 @@ export default function WealthAssistant({ agentData }) {
   const currentKey   = stack[stack.length - 1].key;
   const items        = agentData[currentKey] || [];
   const isPromptView = currentKey.startsWith("prompts-");
-  const filtered = filter === "all" ? items : items.filter(i => i.type === filter);
+  const filteredItems = filter === "all" ? items : items.filter(i => i.type === filter);
 
   function showToast(msg) { setToast(msg); setTimeout(() => setToast(null), 4000); }
 
-  // Open mention popup — e is a MouseEvent or synthetic {clientX,clientY}
   const openMention = useCallback((e, token, callback) => {
     setMentionState({ visible: true, x: e.clientX, y: e.clientY + 10, token, callback });
   }, []);
@@ -564,13 +569,54 @@ export default function WealthAssistant({ agentData }) {
 
   function navigateTo(idx) { setStack(s => s.slice(0, idx + 1)); }
 
+  function handleSendToAgent(projectItems) {
+    const clientItems  = projectItems.filter(i => i.type === "client");
+    const accountItems = projectItems.filter(i => i.type === "account");
+
+    if (clientItems.length > 0) {
+      MENTION_REGISTRY.Client.items = clientItems.map(i => ({
+        id:       i.client.clientId,
+        label:    i.client.name,
+        sub:      `${i.client.type} · ${i.client.accounts.length} accounts`,
+        initials: i.client.name.split(",").map(p => p.trim()[0]).join(""),
+      }));
+    }
+
+    if (accountItems.length > 0) {
+      MENTION_REGISTRY.Accounts.items = accountItems.map(i => ({
+        id:       i.account.accountNumber,
+        label:    i.account.accountNumber,
+        sub:      `${i.account.acctType} · ${i.client.name}`,
+        initials: i.account.cm,
+      }));
+    }
+
+    setRailTab("chat");
+    const total = projectItems.length;
+    showToast(`${total} item${total !== 1 ? "s" : ""} added to context — open Quick Chat to run an agent`);
+  }
+
   const navItems = [
-    { icon: LayoutGrid, label: "Dashboard", active: true, onClick: () => { setStack([{ key: "root", title: "Agent Workspace", sub: "hover a card to run, click to explore" }]); setFilter("agent"); } },
-    { icon: Users,      label: "My Clients"  },
-    { icon: FileText,   label: "My Agents"   },
-    { icon: BarChart2,  label: "Reports"     },
-    { icon: Clock,      label: "Activity",   badge: activeCount || null },
-    { icon: Settings,   label: "Settings"    },
+    {
+      icon: LayoutGrid,
+      label: "Dashboard",
+      active: navView === "dashboard",
+      onClick: () => {
+        setNavView("dashboard");
+        setStack([{ key: "root", title: "Agent Workspace", sub: "hover a card to run, click to explore" }]);
+        setFilter("agent");
+      },
+    },
+    {
+      icon: Users,
+      label: "My Clients",
+      active: navView === "clients",
+      onClick: () => setNavView("clients"),
+    },
+    { icon: FileText,  label: "My Agents"                        },
+    { icon: BarChart2, label: "Reports"                          },
+    { icon: Clock,     label: "Activity", badge: activeCount || null },
+    { icon: Settings,  label: "Settings"                         },
   ];
 
   return (
@@ -582,9 +628,10 @@ export default function WealthAssistant({ agentData }) {
         ::-webkit-scrollbar{width:4px;}
         ::-webkit-scrollbar-thumb{background:#2e3040;border-radius:4px;}
       `}</style>
+
       <div ref={shellRef} style={{ display: "flex", height: "100vh", background: "#0a0b0d", color: "#e8e9eb", fontFamily: "Roboto, sans-serif", fontSize: 13, overflow: "hidden", position: "relative" }}>
 
-        {/* SIDEBAR */}
+        {/* ── SIDEBAR ── */}
         <div style={{ width: 210, minWidth: 210, background: "#0f1014", borderRight: "1px solid #1e2029", display: "flex", flexDirection: "column" }}>
           <div style={{ padding: "18px 16px 16px", borderBottom: "1px solid #1e2029", display: "flex", alignItems: "center", gap: 8 }}>
             <div style={{ width: 28, height: 28, background: "linear-gradient(135deg,#2a6dd9,#1a4fa3)", borderRadius: 7, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -595,7 +642,8 @@ export default function WealthAssistant({ agentData }) {
           <div style={{ flex: 1, padding: "12px 8px", display: "flex", flexDirection: "column", gap: 2 }}>
             <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#7a7e94", padding: "10px 10px 4px" }}>Workspace</div>
             {navItems.map((nav, i) => (
-              <div key={i} onClick={nav.onClick} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 7, cursor: "pointer", color: nav.active ? "#7db8ff" : "#aab0c8", background: nav.active ? "#152640" : "transparent", transition: "all 0.15s" }}
+              <div key={i} onClick={nav.onClick}
+                style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 7, cursor: "pointer", color: nav.active ? "#7db8ff" : "#aab0c8", background: nav.active ? "#152640" : "transparent", transition: "all 0.15s" }}
                 onMouseEnter={e => { if (!nav.active) e.currentTarget.style.background = "#181a22"; }}
                 onMouseLeave={e => { if (!nav.active) e.currentTarget.style.background = "transparent"; }}
               >
@@ -616,21 +664,25 @@ export default function WealthAssistant({ agentData }) {
           </div>
         </div>
 
-        {/* MAIN */}
+        {/* ── MAIN ── */}
         <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
 
-          {/* TOPBAR — breadcrumb + bell only, filters moved to grid header */}
+          {/* TOPBAR */}
           <div style={{ height: 52, borderBottom: "1px solid #1e2029", display: "flex", alignItems: "center", padding: "0 24px", gap: 12, background: "#0c0d11", flexShrink: 0 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, flex: 1 }}>
-              <Home size={13} style={{ cursor: "pointer", color: "#8a8fa8" }} onClick={() => navigateTo(0)} />
-              {stack.map((s, i) => (
-                <span key={i} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  {i > 0 && <ChevronRight size={11} color="#3a3d50" />}
-                  <span onClick={() => navigateTo(i)} style={{ cursor: i === stack.length - 1 ? "default" : "pointer", color: i === stack.length - 1 ? "#dde0f0" : "#8a8fa8", fontWeight: i === stack.length - 1 ? 500 : 400 }}>
-                    {s.title}
+              <Home size={13} style={{ cursor: "pointer", color: "#8a8fa8" }} onClick={() => { setNavView("dashboard"); navigateTo(0); }} />
+              {navView === "clients" ? (
+                <span style={{ color: "#dde0f0", fontWeight: 500 }}>My Clients</span>
+              ) : (
+                stack.map((s, i) => (
+                  <span key={i} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    {i > 0 && <ChevronRight size={11} color="#3a3d50" />}
+                    <span onClick={() => navigateTo(i)} style={{ cursor: i === stack.length - 1 ? "default" : "pointer", color: i === stack.length - 1 ? "#dde0f0" : "#8a8fa8", fontWeight: i === stack.length - 1 ? 500 : 400 }}>
+                      {s.title}
+                    </span>
                   </span>
-                </span>
-              ))}
+                ))
+              )}
             </div>
             <div onClick={() => setDrawerOpen(true)} style={{ position: "relative", width: 32, height: 32, borderRadius: 8, border: "1px solid #1e2029", background: "#13151e", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#9096b0" }}>
               <Bell size={14} />
@@ -641,80 +693,91 @@ export default function WealthAssistant({ agentData }) {
           {/* WORKSPACE BODY */}
           <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
 
-            {/* GRID */}
-            <div style={{ flex: 1, overflowY: "auto", padding: "20px 24px" }}>
-
-              {/* Section header: title + subtitle LEFT, filter pills RIGHT — same row */}
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
-                <div>
-                  <div style={{ fontSize: 18, fontWeight: 700, color: "#eceef5" }}>{stack[stack.length - 1].title}</div>
-                  <div style={{ fontSize: 12, color: "#8a8fa8", marginTop: 2 }}>{stack[stack.length - 1].sub}</div>
+            {navView === "clients" ? (
+              <>
+                <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+                  <MyClientsView
+                    allClients={clientsData}
+                    onSendToAgent={handleSendToAgent}
+                  />
                 </div>
-                {!isPromptView && (
-                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                    {FILTERS.map(f => (
-                      <button key={f.key} onClick={() => setFilter(f.key)} style={{
-                        padding: "6px 14px", borderRadius: 20,
-                        border: `1px solid ${filter === f.key ? "#2a5090" : "#2a2d3a"}`,
-                        background: filter === f.key ? "#152640" : "transparent",
-                        color: filter === f.key ? "#7db8ff" : "#9096b0",
-                        fontSize: 12, fontWeight: filter === f.key ? 600 : 400,
-                        cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s",
-                      }}>
-                        {f.label}
-                      </button>
-                    ))}
+                <RightRail
+                  railTab={railTab}
+                  setRailTab={setRailTab}
+                  jobs={jobs}
+                  advisorName={advisorName}
+                  onMentionClick={openMention}
+                />
+              </>
+            ) : (
+              <>
+                {/* DASHBOARD GRID */}
+                <div style={{ flex: 1, overflowY: "auto", padding: "20px 24px" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
+                    <div>
+                      <div style={{ fontSize: 18, fontWeight: 700, color: "#eceef5" }}>{stack[stack.length - 1].title}</div>
+                      <div style={{ fontSize: 12, color: "#8a8fa8", marginTop: 2 }}>{stack[stack.length - 1].sub}</div>
+                    </div>
+                    {!isPromptView && (
+                      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                        {FILTERS.map(f => (
+                          <button key={f.key} onClick={() => setFilter(f.key)} style={{
+                            padding: "6px 14px", borderRadius: 20,
+                            border: `1px solid ${filter === f.key ? "#2a5090" : "#2a2d3a"}`,
+                            background: filter === f.key ? "#152640" : "transparent",
+                            color: filter === f.key ? "#7db8ff" : "#9096b0",
+                            fontSize: 12, fontWeight: filter === f.key ? 600 : 400,
+                            cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s",
+                          }}>
+                            {f.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
 
-              {isPromptView ? (
-                <div style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth: 640 }}>
-                  {items.map(item => <PromptStep key={item.id} item={item} onMentionClick={openMention} />)}
-                  <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
-                    <button onClick={() => handleRun({ id: currentKey, name: stack[stack.length - 1].title })}
-                      style={{ flex: 1, padding: "9px 16px", borderRadius: 6, border: "1px solid #2a4a8a", background: "#0e1e38", color: "#7db8ff", fontSize: 13, cursor: "pointer", fontFamily: "inherit", fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-                      <Play size={12} /> Run Full Workflow
-                    </button>
-                    <button style={{ padding: "9px 16px", borderRadius: 6, border: "1px solid #2a2d3a", background: "transparent", color: "#9096b0", fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>
-                      Run for One Client
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
-                  {filtered.map(item => <AgentCard key={item.id} item={item} onDrill={handleDrill} onRun={handleRun} isRunning={!!runningIds[item.id]} />)}
-                  {filtered.length === 0 && (
-                    <div style={{ gridColumn: "span 3", fontSize: 13, color: "#7a7e94", padding: "40px 0", textAlign: "center" }}>
-                      No {filter === "all" ? "items" : `${filter}s`} at this level.
+                  {isPromptView ? (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth: 640 }}>
+                      {items.map(item => <PromptStep key={item.id} item={item} onMentionClick={openMention} />)}
+                      <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+                        <button onClick={() => handleRun({ id: currentKey, name: stack[stack.length - 1].title })}
+                          style={{ flex: 1, padding: "9px 16px", borderRadius: 6, border: "1px solid #2a4a8a", background: "#0e1e38", color: "#7db8ff", fontSize: 13, cursor: "pointer", fontFamily: "inherit", fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+                          <Play size={12} /> Run Full Workflow
+                        </button>
+                        <button style={{ padding: "9px 16px", borderRadius: 6, border: "1px solid #2a2d3a", background: "transparent", color: "#9096b0", fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>
+                          Run for One Client
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
+                      {filteredItems.map(item => <AgentCard key={item.id} item={item} onDrill={handleDrill} onRun={handleRun} isRunning={!!runningIds[item.id]} />)}
+                      {filteredItems.length === 0 && (
+                        <div style={{ gridColumn: "span 3", fontSize: 13, color: "#7a7e94", padding: "40px 0", textAlign: "center" }}>
+                          No {filter === "all" ? "items" : `${filter}s`} at this level.
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
-              )}
-            </div>
 
-            {/* RIGHT RAIL */}
-            <div style={{ width: 264, minWidth: 264, borderLeft: "1px solid #1e2029", background: "#0c0d11", display: "flex", flexDirection: "column" }}>
-              <div style={{ display: "flex", borderBottom: "1px solid #1e2029", flexShrink: 0 }}>
-                {[["activity","Activity"],["chat","Quick Chat"],["insights","Insights"]].map(([key, label]) => (
-                  <div key={key} onClick={() => setRailTab(key)} style={{ flex: 1, padding: "11px 4px", textAlign: "center", fontSize: 12, fontWeight: railTab === key ? 600 : 400, color: railTab === key ? "#7db8ff" : "#9096b0", borderBottom: `2px solid ${railTab === key ? "#3a7de9" : "transparent"}`, cursor: "pointer", transition: "all 0.15s" }}>
-                    {label}
-                  </div>
-                ))}
-              </div>
-              <div style={{ flex: 1, overflowY: "auto", padding: 14, display: "flex", flexDirection: "column" }}>
-                {railTab === "activity" && <ActivityRail jobs={jobs} />}
-                {railTab === "chat"     && <ChatRail advisorName={advisorName} onMentionClick={openMention} />}
-                {railTab === "insights" && <InsightsRail />}
-              </div>
-            </div>
+                {/* RIGHT RAIL */}
+                <RightRail
+                  railTab={railTab}
+                  setRailTab={setRailTab}
+                  jobs={jobs}
+                  advisorName={advisorName}
+                  onMentionClick={openMention}
+                />
+              </>
+            )}
           </div>
         </div>
 
         {/* RESULTS DRAWER */}
         <ResultsDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} jobId={activeJobId} />
 
-        {/* SHARED @MENTION POPUP */}
+        {/* MENTION POPUP */}
         <MentionPopup state={mentionState} onSelect={handleMentionSelect} onClose={() => setMentionState(s => ({ ...s, visible: false }))} />
 
         {/* TOAST */}
