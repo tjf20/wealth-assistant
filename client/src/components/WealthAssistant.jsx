@@ -366,7 +366,7 @@ function ActivityRail({ jobs }) {
 }
 
 // ── Chat Rail ─────────────────────────────────────────────────────────────────
-function ChatRail({ advisorName, onMentionClick }) {
+function ChatRail({ advisorName, onMentionClick, projectContext }) {
   const { messages, loading, send } = useChat({ advisorName });
   const [input, setInput] = useState("");
   const textareaRef = useRef(null);
@@ -376,6 +376,20 @@ function ChatRail({ advisorName, onMentionClick }) {
     "Which clients hold @security?",
     "Prepare client review for @Client",
   ];
+
+
+  // Build a context banner when items are sent from Project Center
+const hasContext = projectContext && (projectContext.clients.length > 0 || projectContext.accounts.length > 0);
+
+const contextSummary = hasContext ? [
+  projectContext.clients.length > 0
+    ? `${projectContext.clients.length} client${projectContext.clients.length !== 1 ? "s" : ""}: ${projectContext.clients.map(c => c.name).join(", ")}`
+    : null,
+  projectContext.accounts.length > 0
+    ? `${projectContext.accounts.length} account${projectContext.accounts.length !== 1 ? "s" : ""}: ${projectContext.accounts.map(a => a.accountNumber).join(", ")}`
+    : null,
+].filter(Boolean).join(" · ") : null;
+
 
   function parsePrompt(str) {
     return str.split(/(@\w+)/g).map(part =>
@@ -456,6 +470,22 @@ function ChatRail({ advisorName, onMentionClick }) {
           <Send size={13} />
         </button>
       </div>
+      {hasContext && (
+        <div style={{ background: "#0a2820", border: "1px solid #1a6a50", borderRadius: 8, padding: "8px 12px", marginBottom: 6, flexShrink: 0 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: "#2dbe8a", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>
+            Active Context
+          </div>
+          <div style={{ fontSize: 12, color: "#7ab8a0", lineHeight: 1.6 }}>
+            {contextSummary}
+          </div>
+          <div style={{ fontSize: 11, color: "#2dbe8a", marginTop: 6 }}>
+            Type @ to reference these clients in your prompt ↓
+          </div>
+        </div>
+      )}
+
+
+      
     </div>
   );
 }
@@ -482,7 +512,7 @@ function InsightsRail() {
 }
 
 // ── Right Rail (shared between dashboard and clients views) ───────────────────
-function RightRail({ railTab, setRailTab, jobs, advisorName, onMentionClick }) {
+function RightRail({ railTab, setRailTab, jobs, advisorName, onMentionClick, projectContext }) {
   return (
     <div style={{ width: 264, minWidth: 264, borderLeft: "1px solid #1e2029", background: "#0c0d11", display: "flex", flexDirection: "column" }}>
       <div style={{ display: "flex", borderBottom: "1px solid #1e2029", flexShrink: 0 }}>
@@ -495,7 +525,7 @@ function RightRail({ railTab, setRailTab, jobs, advisorName, onMentionClick }) {
       </div>
       <div style={{ flex: 1, overflowY: "auto", padding: 14, display: "flex", flexDirection: "column" }}>
         {railTab === "activity" && <ActivityRail jobs={jobs} />}
-        {railTab === "chat"     && <ChatRail advisorName={advisorName} onMentionClick={onMentionClick} />}
+        {railTab === "chat" && <ChatRail advisorName={advisorName} onMentionClick={onMentionClick} projectContext={projectContext} />}
         {railTab === "insights" && <InsightsRail />}
       </div>
     </div>
@@ -505,7 +535,7 @@ function RightRail({ railTab, setRailTab, jobs, advisorName, onMentionClick }) {
 // ── Main WealthAssistant ──────────────────────────────────────────────────────
 export default function WealthAssistant({ agentData }) {
   const advisorName = "James Miller";
-
+console.log(agentData);
   const [navView, setNavView]           = useState("dashboard");
   const [stack, setStack]               = useState([{ key: "root", title: "Agent Workspace", sub: "hover a card to run, click to explore" }]);
   const [filter, setFilter]             = useState("agent");
@@ -520,12 +550,27 @@ export default function WealthAssistant({ agentData }) {
     visible: false, x: 0, y: 0, token: null, callback: null,
   });
 
+const [projectContext, setProjectContext] = useState({ clients: [], accounts: [] }); //new
+
   const { jobs, addJob, activeCount, refresh: refreshActivity } = useActivity();
 
   const currentKey   = stack[stack.length - 1].key;
   const items        = agentData[currentKey] || [];
   const isPromptView = currentKey.startsWith("prompts-");
-  const filteredItems = filter === "all" ? items : items.filter(i => i.type === filter);
+  
+  //const filteredItems = filter === "all" ? items : items.filter(i => i.type === filter);
+const allWorkflows = currentKey === "root"
+  ? Object.entries(agentData)
+      .filter(([key]) => key.startsWith("sub-ag-"))
+      .flatMap(([_, subItems]) => subItems.filter(i => i.type === "workflow"))
+  : items.filter(i => i.type === "workflow");
+
+const filteredItems = filter === "all"
+  ? (currentKey === "root" ? [...items, ...allWorkflows] : items)
+  : filter === "workflow"
+    ? allWorkflows
+    : items.filter(i => i.type === filter);
+
 
   function showToast(msg) { setToast(msg); setTimeout(() => setToast(null), 4000); }
 
@@ -570,6 +615,41 @@ export default function WealthAssistant({ agentData }) {
   function navigateTo(idx) { setStack(s => s.slice(0, idx + 1)); }
 
   function handleSendToAgent(projectItems) {
+  const clientItems  = projectItems.filter(i => i.type === "client");
+  const accountItems = projectItems.filter(i => i.type === "account");
+
+  // Update MENTION_REGISTRY so @Client and @Accounts popups reflect selection
+  if (clientItems.length > 0) {
+    MENTION_REGISTRY.Client.items = clientItems.map(i => ({
+      id:       i.client.clientId,
+      label:    i.client.name,
+      sub:      `${i.client.type} · ${i.client.accounts.length} accounts`,
+      initials: i.client.name.split(",").map(p => p.trim()[0]).join(""),
+    }));
+  }
+
+  if (accountItems.length > 0) {
+    MENTION_REGISTRY.Accounts.items = accountItems.map(i => ({
+      id:       i.account.accountNumber,
+      label:    i.account.accountNumber,
+      sub:      `${i.account.acctType} · ${i.client.name}`,
+      initials: i.account.cm,
+    }));
+  }
+
+  // Store context as React state so ChatRail re-renders
+  setProjectContext({
+    clients:  clientItems.map(i => i.client),
+    accounts: accountItems.map(i => ({ ...i.account, clientName: i.client.name })),
+  });
+
+  setRailTab("chat");
+
+  const total = projectItems.length;
+  showToast(`${total} item${total !== 1 ? "s" : ""} sent to Quick Chat`);
+}
+  /*
+  function handleSendToAgent(projectItems) {
     const clientItems  = projectItems.filter(i => i.type === "client");
     const accountItems = projectItems.filter(i => i.type === "account");
 
@@ -595,7 +675,7 @@ export default function WealthAssistant({ agentData }) {
     const total = projectItems.length;
     showToast(`${total} item${total !== 1 ? "s" : ""} added to context — open Quick Chat to run an agent`);
   }
-
+*/
   const navItems = [
     {
       icon: LayoutGrid,
@@ -702,12 +782,13 @@ export default function WealthAssistant({ agentData }) {
                   />
                 </div>
                 <RightRail
-                  railTab={railTab}
-                  setRailTab={setRailTab}
-                  jobs={jobs}
-                  advisorName={advisorName}
-                  onMentionClick={openMention}
-                />
+                    railTab={railTab}
+                    setRailTab={setRailTab}
+                    jobs={jobs}
+                    advisorName={advisorName}
+                    onMentionClick={openMention}
+                    projectContext={projectContext}
+                  />
               </>
             ) : (
               <>
@@ -768,6 +849,7 @@ export default function WealthAssistant({ agentData }) {
                   jobs={jobs}
                   advisorName={advisorName}
                   onMentionClick={openMention}
+                  projectContext={projectContext}
                 />
               </>
             )}

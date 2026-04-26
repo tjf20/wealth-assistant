@@ -38,13 +38,13 @@ const AGENT_META = {
     {
       id: "ag-06", name: "Client Deepening Agent", type: "agent",
       icon: "Gift", color: "coral",
-      desc: "Upsell opportunities, product recommendations & relationship insights",
+      desc: "Opportunities, product recommendations & relationship insights",
       subs: "sub-ag-06", runnable: false,
     },
     {
       id: "ag-07", name: "Salesforce AgentForce", type: "agent",
       icon: "Cloud", color: "blue",
-      desc: "CRM sync, activity logging, opportunity & pipeline tracking",
+      desc: "CRM, notes, activity logging, opportunity & pipeline tracking",
       subs: "sub-ag-07", runnable: false,
     },
     {
