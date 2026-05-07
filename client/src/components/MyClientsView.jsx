@@ -333,7 +333,7 @@ export default function MyClientsView({ allClients, onSendToAgent }) {
   const [drawerClient, setDrawerClient]   = useState(null);
   const [drawerOpen, setDrawerOpen]       = useState(false);
   const [projectItems, setProjectItems]   = useState([]);
-  const [projectExpanded, setProjectExpanded] = useState(false);
+  //const [projectExpanded, setProjectExpanded] = useState(false);
   const filterRef                         = useRef(null);
 
   // Close filter dropdown on outside click
@@ -457,16 +457,13 @@ export default function MyClientsView({ allClients, onSendToAgent }) {
 
   function addSelectedClientsToProject() {
     const selected = myClients.filter(c => selectedIds.has(c.clientId));
-    const newItems = selected
-      .filter(c => !projectItems.some(i => i.type === "client" && i.client.clientId === c.clientId))
-      .map(c => ({ type: "client", client: c }));
-    setProjectItems(prev => [...prev, ...newItems]);
-    setProjectExpanded(true);
-    setSelectedIds(new Set());
+const items = selected.map(c => ({ type: "client", client: c }));
+if (onSendToAgent) onSendToAgent(items);
+setSelectedIds(new Set());
   }
 
   function removeFromProject(idx) { setProjectItems(prev => prev.filter((_, i) => i !== idx)); }
-  function clearProject() { setProjectItems([]); }
+ // function clearProject() { setProjectItems([]); }
 
   function handleSendToAgent() {
     if (onSendToAgent) onSendToAgent(projectItems);
@@ -588,7 +585,7 @@ export default function MyClientsView({ allClients, onSendToAgent }) {
       </div>
 
       {/* ── Table ── */}
-      <div style={{ flex: 1, overflowY: "auto", paddingBottom: 38 /* room for tray */ }}>
+      <div style={{ flex: 1, overflowY: "auto", paddingBottom: 0 /* room for tray */ }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
           <thead style={{ position: "sticky", top: 0, zIndex: 10 }}>
             <tr>
@@ -680,15 +677,7 @@ export default function MyClientsView({ allClients, onSendToAgent }) {
         onAddToProject={addToProject}
       />
 
-      {/* ── Project Center Tray ── */}
-      <ProjectCenterTray
-        items={projectItems}
-        onRemove={removeFromProject}
-        onClear={clearProject}
-        onSendToAgent={handleSendToAgent}
-        onExpand={() => setProjectExpanded(o => !o)}
-        expanded={projectExpanded}
-      />
+     
     </div>
   );
 }

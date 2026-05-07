@@ -4,15 +4,18 @@ import {
   Users, BarChart2, TrendingUp, Map, UserPlus, Gift,
   Cloud, Activity, Briefcase, ChevronRight, Play, Pause,
   Bell, Settings, LayoutGrid, FileText, Clock, X,
-  Send, Home, Zap, Search, Star,
+  Send, Home, Zap, Search, Star, FolderOpen,
 } from "lucide-react";
 import { api } from "../api.js";
 import { useActivity } from "../hooks/useActivity.js";
 import { useChat } from "../hooks/useChat.js";
 import MyClientsView from "./MyClientsView";
 import clientsData from "../data/clients.json";
-
-// ── CHANGE 1: Add import at top (after MyClientsView import) ─────────────────
+import { useProjects } from "../hooks/useProjects.js";
+import { useReports } from "../hooks/useReports.js";
+import ReportsView from "./ReportsView.jsx";
+import ProjectCenterView from "./ProjectCenterView.jsx";
+import ProjectDetailView from "./ProjectDetailView.jsx";
 import MyCanvasView from "./MyCanvasView";
 
 // ── Icon registry ─────────────────────────────────────────────────────────────
@@ -283,10 +286,15 @@ function AgentCard({ item, onDrill, onRun, isRunning }) {
   );
 }
 
-// ── Results Drawer ────────────────────────────────────────────────────────────
+// ── Results Drawer — split panel: results left, inline chat right ─────────────
 function ResultsDrawer({ open, onClose, jobId }) {
   const [results, setResults] = useState(null);
+  const [chatMessages, setChatMessages] = useState([]);
+  const [chatInput, setChatInput] = useState("");
+  const [chatLoading, setChatLoading] = useState(false);
+
   useState(() => { if (open && jobId) api.getJobResults(jobId).then(setResults).catch(() => {}); }, [open, jobId]);
+
   const demo = {
     agentName: "Tax Loss Harvesting",
     summary: { accountsAnalyzed: 47, opportunitiesFound: 4, estimatedTaxSavings: 8215 },
@@ -298,41 +306,119 @@ function ResultsDrawer({ open, onClose, jobId }) {
     ],
   };
   const data = results || demo;
+
+  async function sendChat(text) {
+    if (!text.trim() || chatLoading) return;
+    const userMsg = { role: "user", content: text };
+    setChatMessages(prev => [...prev, userMsg]);
+    setChatInput(""); setChatLoading(true);
+    try {
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514", max_tokens: 800,
+          system: `You are a financial advisor assistant. The advisor is reviewing results from a "${data.agentName}" workflow. Accounts analyzed: ${data.summary.accountsAnalyzed}. Opportunities found: ${data.summary.opportunitiesFound}. Estimated tax savings: $${data.summary.estimatedTaxSavings.toLocaleString()}. Answer questions about these results concisely.`,
+          messages: [...chatMessages, userMsg].map(m => ({ role: m.role, content: m.content })),
+        }),
+      });
+      const d2 = await res.json();
+      const reply = d2.content?.find(b => b.type === "text")?.text || "Unable to respond.";
+      setChatMessages(prev => [...prev, { role: "assistant", content: reply }]);
+    } catch {
+      setChatMessages(prev => [...prev, { role: "assistant", content: "Connection error." }]);
+    }
+    setChatLoading(false);
+  }
+
+  const chatSuggestions = ["Which clients should I act on first?", "What's the deadline for harvesting?", "Export a summary for compliance"];
+
   return (
-    <div style={{ position: "absolute", top: 0, right: 0, bottom: 0, width: 440, background: "#0c0d11", borderLeft: "1px solid #2a3a60", zIndex: 20, display: "flex", flexDirection: "column", transform: open ? "translateX(0)" : "translateX(100%)", transition: "transform 0.3s ease" }}>
-      <div style={{ padding: "14px 16px", borderBottom: "1px solid #1e2029", display: "flex", alignItems: "center", gap: 10 }}>
+    <div style={{ position: "absolute", top: 0, right: 0, bottom: 0, width: 720, background: "#0c0d11", borderLeft: "1px solid #2a3a60", zIndex: 20, display: "flex", flexDirection: "column", transform: open ? "translateX(0)" : "translateX(100%)", transition: "transform 0.3s ease" }}>
+      {/* Header */}
+      <div style={{ padding: "14px 16px", borderBottom: "1px solid #1e2029", display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 14, fontWeight: 700, color: "#eceef5" }}>{data.agentName} — Results</div>
-          <div style={{ fontSize: 11, color: "#8a8fa8", marginTop: 3 }}>{data.summary.accountsAnalyzed} accounts · {data.summary.opportunitiesFound} opportunities · Est. savings ${data.summary.estimatedTaxSavings.toLocaleString()}</div>
+          <div style={{ fontSize: 11, color: "#8a8fa8", marginTop: 2 }}>{data.summary.accountsAnalyzed} accounts · {data.summary.opportunitiesFound} opportunities · Est. savings ${data.summary.estimatedTaxSavings.toLocaleString()}</div>
         </div>
         <button onClick={onClose} style={{ width: 26, height: 26, borderRadius: 6, background: "#1a1d28", border: "1px solid #1e2029", color: "#8a8fa8", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><X size={12} /></button>
       </div>
-      <div style={{ flex: 1, overflowY: "auto", padding: 16 }}>
-        <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#7a7e94", marginBottom: 8 }}>Opportunities</div>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-          <thead><tr>{["Client","Security","Unrealized Loss","Action"].map(h => <th key={h} style={{ textAlign: "left", color: "#8a8fa8", fontWeight: 600, padding: "5px 8px", borderBottom: "1px solid #1e2029" }}>{h}</th>)}</tr></thead>
-          <tbody>
-            {data.rows.map((row, i) => (
-              <tr key={i}>
-                <td style={{ padding: "7px 8px", color: "#dde0f0", borderBottom: "1px solid #131620" }}>{row.client}</td>
-                <td style={{ padding: "7px 8px", color: "#b0b8d0", borderBottom: "1px solid #131620" }}>{row.security}</td>
-                <td style={{ padding: "7px 8px", color: "#f07850", borderBottom: "1px solid #131620" }}>-${Math.abs(row.unrealizedLoss).toLocaleString()}</td>
-                <td style={{ padding: "7px 8px", color: row.action === "Harvest" ? "#7db8ff" : "#8a8fa8", borderBottom: "1px solid #131620" }}>{row.action}</td>
-              </tr>
+
+      {/* Split body */}
+      <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
+
+        {/* Left — results table */}
+        <div style={{ flex: 1, overflowY: "auto", padding: 16, borderRight: "1px solid #1e2029" }}>
+          <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#7a7e94", marginBottom: 8 }}>Opportunities</div>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+            <thead><tr>{["Client","Security","Unrealized Loss","Action"].map(h => <th key={h} style={{ textAlign: "left", color: "#8a8fa8", fontWeight: 600, padding: "5px 8px", borderBottom: "1px solid #1e2029" }}>{h}</th>)}</tr></thead>
+            <tbody>
+              {data.rows.map((row, i) => (
+                <tr key={i}>
+                  <td style={{ padding: "7px 8px", color: "#dde0f0", borderBottom: "1px solid #131620" }}>{row.client}</td>
+                  <td style={{ padding: "7px 8px", color: "#b0b8d0", borderBottom: "1px solid #131620" }}>{row.security}</td>
+                  <td style={{ padding: "7px 8px", color: "#f07850", borderBottom: "1px solid #131620" }}>-${Math.abs(row.unrealizedLoss).toLocaleString()}</td>
+                  <td style={{ padding: "7px 8px", color: row.action === "Harvest" ? "#7db8ff" : "#8a8fa8", borderBottom: "1px solid #131620" }}>{row.action}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 16, marginBottom: 16 }}>
+            {[["Total Harvestable", "-$29,350", "#f07850"], ["Est. Tax Savings", "+$8,215", "#2dbe8a"]].map(([label, val, color]) => (
+              <div key={label} style={{ background: "#0f1014", border: "1px solid #1e2029", borderRadius: 8, padding: 10 }}>
+                <div style={{ fontSize: 11, color: "#7a7e94", marginBottom: 4 }}>{label}</div>
+                <div style={{ fontSize: 20, fontWeight: 700, color }}>{val}</div>
+              </div>
             ))}
-          </tbody>
-        </table>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 16, marginBottom: 16 }}>
-          {[["Total Harvestable", "-$29,350", "#f07850"], ["Est. Tax Savings", "+$8,215", "#2dbe8a"]].map(([label, val, color]) => (
-            <div key={label} style={{ background: "#0f1014", border: "1px solid #1e2029", borderRadius: 8, padding: 10 }}>
-              <div style={{ fontSize: 11, color: "#7a7e94", marginBottom: 4 }}>{label}</div>
-              <div style={{ fontSize: 20, fontWeight: 700, color }}>{val}</div>
-            </div>
-          ))}
+          </div>
+          <button style={{ width: "100%", padding: "9px 14px", borderRadius: 6, border: "1px solid #2a4a8a", background: "#0e1e38", color: "#7db8ff", fontSize: 12, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontWeight: 600 }}>
+            <Send size={12} /> Send Results to Email / Favorites
+          </button>
         </div>
-        <button style={{ width: "100%", padding: "9px 14px", borderRadius: 6, border: "1px solid #2a4a8a", background: "#0e1e38", color: "#7db8ff", fontSize: 12, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontWeight: 600 }}>
-          <Send size={12} /> Send Results to Email / Favorites
-        </button>
+
+        {/* Right — inline chat about results */}
+        <div style={{ width: 280, display: "flex", flexDirection: "column", flexShrink: 0 }}>
+          <div style={{ padding: "10px 14px", borderBottom: "1px solid #1e2029", flexShrink: 0, display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ width: 26, height: 26, borderRadius: 7, background: "#152640", border: "1px solid #2a4a8a", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Send size={11} color="#7db8ff" />
+            </div>
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: "#eceef5" }}>Ask about results</div>
+              <div style={{ fontSize: 10, color: "#7a7e94" }}>AI-powered follow-up</div>
+            </div>
+          </div>
+          <div style={{ flex: 1, overflowY: "auto", padding: "10px 12px", display: "flex", flexDirection: "column", gap: 8 }}>
+            {chatMessages.length === 0 && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 4 }}>
+                <div style={{ fontSize: 11, color: "#6a6e88", marginBottom: 4 }}>Suggested questions:</div>
+                {chatSuggestions.map((s, i) => (
+                  <div key={i} onClick={() => sendChat(s)}
+                    style={{ fontSize: 12, color: "#7db8ff", cursor: "pointer", padding: "7px 10px", borderRadius: 6, background: "#0e1e38", border: "1px solid #1a3060", lineHeight: 1.4 }}
+                    onMouseEnter={e => e.currentTarget.style.borderColor = "#2a4a8a"}
+                    onMouseLeave={e => e.currentTarget.style.borderColor = "#1a3060"}>
+                    › {s}
+                  </div>
+                ))}
+              </div>
+            )}
+            {chatMessages.map((m, i) => (
+              <div key={i} style={{ padding: "8px 10px", borderRadius: 8, fontSize: 12, lineHeight: 1.55, maxWidth: "96%", alignSelf: m.role === "user" ? "flex-end" : "flex-start", background: m.role === "user" ? "#0e1e38" : "#13151e", color: m.role === "user" ? "#b8d0f0" : "#b0b8d0", border: `1px solid ${m.role === "user" ? "#1a3060" : "#1e2029"}` }}>
+                {m.content}
+              </div>
+            ))}
+            {chatLoading && <div style={{ fontSize: 11, color: "#6a6e88" }}>Thinking…</div>}
+          </div>
+          <div style={{ padding: "10px 12px", borderTop: "1px solid #1e2029", display: "flex", gap: 6, alignItems: "flex-end", flexShrink: 0 }}>
+            <textarea value={chatInput} onChange={e => setChatInput(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChat(chatInput); } }}
+              placeholder="Ask about these results…" rows={2}
+              style={{ flex: 1, background: "#13151e", border: "1px solid #1e2029", borderRadius: 7, padding: "7px 10px", fontSize: 12, color: "#dde0f0", fontFamily: "inherit", resize: "none", outline: "none" }} />
+            <button onClick={() => sendChat(chatInput)} style={{ width: 32, height: 32, borderRadius: 7, background: "#152640", border: "1px solid #2a4a8a", color: "#7db8ff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Send size={13} />
+            </button>
+          </div>
+        </div>
+
       </div>
     </div>
   );
@@ -380,19 +466,16 @@ function ChatRail({ advisorName, onMentionClick, projectContext }) {
     "Prepare client review for @Client",
   ];
 
+  const hasContext = projectContext && (projectContext.clients.length > 0 || projectContext.accounts.length > 0);
 
-  // Build a context banner when items are sent from Project Center
-const hasContext = projectContext && (projectContext.clients.length > 0 || projectContext.accounts.length > 0);
-
-const contextSummary = hasContext ? [
-  projectContext.clients.length > 0
-    ? `${projectContext.clients.length} client${projectContext.clients.length !== 1 ? "s" : ""}: ${projectContext.clients.map(c => c.name).join(", ")}`
-    : null,
-  projectContext.accounts.length > 0
-    ? `${projectContext.accounts.length} account${projectContext.accounts.length !== 1 ? "s" : ""}: ${projectContext.accounts.map(a => a.accountNumber).join(", ")}`
-    : null,
-].filter(Boolean).join(" · ") : null;
-
+  const contextSummary = hasContext ? [
+    projectContext.clients.length > 0
+      ? `${projectContext.clients.length} client${projectContext.clients.length !== 1 ? "s" : ""}: ${projectContext.clients.map(c => c.name).join(", ")}`
+      : null,
+    projectContext.accounts.length > 0
+      ? `${projectContext.accounts.length} account${projectContext.accounts.length !== 1 ? "s" : ""}: ${projectContext.accounts.map(a => a.accountNumber).join(", ")}`
+      : null,
+  ].filter(Boolean).join(" · ") : null;
 
   function parsePrompt(str) {
     return str.split(/(@\w+)/g).map(part =>
@@ -486,9 +569,6 @@ const contextSummary = hasContext ? [
           </div>
         </div>
       )}
-
-
-      
     </div>
   );
 }
@@ -514,33 +594,78 @@ function InsightsRail() {
   );
 }
 
-// ── Right Rail (shared between dashboard and clients views) ───────────────────
-function RightRail({ railTab, setRailTab, jobs, advisorName, onMentionClick, projectContext }) {
+
+// ── Floating Chat Button ──────────────────────────────────────────────────────
+function FloatingChat({ advisorName, onMentionClick, projectContext }) {
+  const { messages, loading, send } = useChat({ advisorName });
+  const [open, setOpen] = useState(false);
+  const [input, setInput] = useState("");
+  const hasContext = projectContext?.clients?.length > 0;
+  function handleSend() { if (!input.trim()) return; send(input); setInput(""); }
+  const quickPrompts = ["Clients with available cash today", "Which clients hold @security?", "Prepare client review for @Client"];
   return (
-    <div style={{ width: 264, minWidth: 264, borderLeft: "1px solid #1e2029", background: "#0c0d11", display: "flex", flexDirection: "column" }}>
-      <div style={{ display: "flex", borderBottom: "1px solid #1e2029", flexShrink: 0 }}>
-        {[["activity","Activity"],["chat","Quick Chat"],["insights","Insights"]].map(([key, label]) => (
-          <div key={key} onClick={() => setRailTab(key)}
-            style={{ flex: 1, padding: "11px 4px", textAlign: "center", fontSize: 12, fontWeight: railTab === key ? 600 : 400, color: railTab === key ? "#7db8ff" : "#9096b0", borderBottom: `2px solid ${railTab === key ? "#3a7de9" : "transparent"}`, cursor: "pointer", transition: "all 0.15s" }}>
-            {label}
+    <>
+      {open && (
+        <div style={{ position: "fixed", bottom: 84, right: 24, width: 360, height: 480, background: "#0c0d11", border: "1px solid #2a3a60", borderRadius: 14, boxShadow: "0 20px 48px rgba(0,0,0,0.7)", zIndex: 55, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+          <div style={{ padding: "12px 16px", borderBottom: "1px solid #1e2029", display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+            <div style={{ width: 30, height: 30, borderRadius: 8, background: "linear-gradient(135deg,#2a6dd9,#7a5aed)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Send size={13} color="#fff" />
+            </div>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#eceef5" }}>Quick Chat</div>
+              <div style={{ fontSize: 10, color: "#7a7e94" }}>Ask anything · type @ to reference</div>
+            </div>
+            <button onClick={() => setOpen(false)} style={{ marginLeft: "auto", width: 24, height: 24, borderRadius: 6, background: "#1a1d28", border: "1px solid #1e2029", color: "#8a8fa8", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><X size={11} /></button>
           </div>
-        ))}
-      </div>
-      <div style={{ flex: 1, overflowY: "auto", padding: 14, display: "flex", flexDirection: "column" }}>
-        {railTab === "activity" && <ActivityRail jobs={jobs} />}
-        {railTab === "chat" && <ChatRail advisorName={advisorName} onMentionClick={onMentionClick} projectContext={projectContext} />}
-        {railTab === "insights" && <InsightsRail />}
-      </div>
-    </div>
+          {hasContext && (
+            <div style={{ padding: "8px 14px", borderBottom: "1px solid #1e2029", background: "#0a2820", flexShrink: 0 }}>
+              <div style={{ fontSize: 10, color: "#2dbe8a", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 2 }}>Active Context</div>
+              <div style={{ fontSize: 11, color: "#7ab8a0" }}>{projectContext.clients.map(c => c.name).join(", ")}</div>
+            </div>
+          )}
+          <div style={{ flex: 1, overflowY: "auto", padding: "10px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
+            {messages.length === 0 && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 5, marginTop: 4 }}>
+                {quickPrompts.map((p, i) => (
+                  <div key={i} onClick={() => send(p)} style={{ fontSize: 12, color: "#7a90c0", padding: "3px 0", cursor: "pointer" }}
+                    onMouseEnter={e => e.currentTarget.style.color = "#7db8ff"}
+                    onMouseLeave={e => e.currentTarget.style.color = "#7a90c0"}>▸ {p}</div>
+                ))}
+              </div>
+            )}
+            {messages.map((m, i) => (
+              <div key={i} style={{ padding: "8px 10px", borderRadius: 8, fontSize: 12, lineHeight: 1.55, maxWidth: "92%", alignSelf: m.role === "user" ? "flex-end" : "flex-start", background: m.role === "user" ? "#0e1e38" : "#13151e", color: m.role === "user" ? "#b8d0f0" : "#b0b8d0", border: `1px solid ${m.role === "user" ? "#1a3060" : "#1e2029"}` }}>
+                {m.content}
+              </div>
+            ))}
+            {loading && <div style={{ fontSize: 11, color: "#6a6e88" }}>Thinking…</div>}
+          </div>
+          <div style={{ padding: "10px 14px", borderTop: "1px solid #1e2029", display: "flex", gap: 6, alignItems: "flex-end", flexShrink: 0 }}>
+            <textarea value={input} onChange={e => setInput(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+              placeholder="Ask anything…" rows={2}
+              style={{ flex: 1, background: "#13151e", border: "1px solid #1e2029", borderRadius: 7, padding: "7px 10px", fontSize: 12, color: "#dde0f0", fontFamily: "inherit", resize: "none", outline: "none" }} />
+            <button onClick={handleSend} style={{ width: 32, height: 32, borderRadius: 7, background: "#152640", border: "1px solid #2a4a8a", color: "#7db8ff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Send size={13} />
+            </button>
+          </div>
+        </div>
+      )}
+      <button onClick={() => setOpen(o => !o)}
+        style={{ position: "fixed", bottom: 24, right: 24, width: 52, height: 52, borderRadius: "50%", background: "linear-gradient(135deg,#2a6dd9,#7a5aed)", border: "none", boxShadow: "0 8px 24px rgba(58,125,233,0.45)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 56, transition: "transform 0.2s" }}
+        onMouseEnter={e => e.currentTarget.style.transform = "scale(1.08)"}
+        onMouseLeave={e => e.currentTarget.style.transform = "scale(1)"}>
+        {open ? <X size={20} color="#fff" /> : <Send size={20} color="#fff" />}
+      </button>
+    </>
   );
 }
 
 // ── Main WealthAssistant ──────────────────────────────────────────────────────
 export default function WealthAssistant({ agentData }) {
   const advisorName = "James Miller";
-console.log(agentData);
-  //const [navView, setNavView]           = useState("dashboard");
-  const [navView, setNavView] = useState("canvas");
+
+  const [navView, setNavView]           = useState("canvas");
   const [stack, setStack]               = useState([{ key: "root", title: "Agent Workspace", sub: "hover a card to run, click to explore" }]);
   const [filter, setFilter]             = useState("agent");
   const [runningIds, setRunningIds]     = useState({});
@@ -554,27 +679,42 @@ console.log(agentData);
     visible: false, x: 0, y: 0, token: null, callback: null,
   });
 
-const [projectContext, setProjectContext] = useState({ clients: [], accounts: [] }); //new
+  const [projectContext, setProjectContext] = useState({ clients: [], accounts: [] });
 
   const { jobs, addJob, activeCount, refresh: refreshActivity } = useActivity();
+
+  // ── Project Center state ──────────────────────────────────────────────────
+  const [activeProject, setActiveProject] = useState(null);
+
+  const {
+    projects,
+    createProject,
+    deleteProject,
+    addClientsToProject,
+    removeClientFromProject,
+    addDocumentToProject,
+    removeDocumentFromProject,
+    addResultToProject,
+    updateResultStatus,
+  } = useProjects();
+  const { reports, saveReport, deleteReport, renameReport } = useReports();
 
   const currentKey   = stack[stack.length - 1].key;
   const items        = agentData[currentKey] || [];
   const isPromptView = currentKey.startsWith("prompts-");
-  
-  //const filteredItems = filter === "all" ? items : items.filter(i => i.type === filter);
-const allWorkflows = currentKey === "root"
-  ? Object.entries(agentData)
-      .filter(([key]) => key.startsWith("sub-ag-"))
-      .flatMap(([_, subItems]) => subItems.filter(i => i.type === "workflow"))
-  : items.filter(i => i.type === "workflow");
 
-const filteredItems = filter === "all"
-  ? (currentKey === "root" ? [...items, ...allWorkflows] : items)
-  : filter === "workflow"
-    ? allWorkflows
-    : items.filter(i => i.type === filter);
+  const allWorkflows = currentKey === "root"
+    ? Object.entries(agentData)
+        .filter(([key]) => key.startsWith("sub-ag-"))
+        .flatMap(([_, subItems]) => subItems.filter(i => i.type === "workflow"))
+    : items.filter(i => i.type === "workflow");
 
+  // FIX 2: use filteredItems consistently throughout
+  const filteredItems = filter === "all"
+    ? (currentKey === "root" ? [...items, ...allWorkflows] : items)
+    : filter === "workflow"
+      ? allWorkflows
+      : items.filter(i => i.type === filter);
 
   function showToast(msg) { setToast(msg); setTimeout(() => setToast(null), 4000); }
 
@@ -619,41 +759,6 @@ const filteredItems = filter === "all"
   function navigateTo(idx) { setStack(s => s.slice(0, idx + 1)); }
 
   function handleSendToAgent(projectItems) {
-  const clientItems  = projectItems.filter(i => i.type === "client");
-  const accountItems = projectItems.filter(i => i.type === "account");
-
-  // Update MENTION_REGISTRY so @Client and @Accounts popups reflect selection
-  if (clientItems.length > 0) {
-    MENTION_REGISTRY.Client.items = clientItems.map(i => ({
-      id:       i.client.clientId,
-      label:    i.client.name,
-      sub:      `${i.client.type} · ${i.client.accounts.length} accounts`,
-      initials: i.client.name.split(",").map(p => p.trim()[0]).join(""),
-    }));
-  }
-
-  if (accountItems.length > 0) {
-    MENTION_REGISTRY.Accounts.items = accountItems.map(i => ({
-      id:       i.account.accountNumber,
-      label:    i.account.accountNumber,
-      sub:      `${i.account.acctType} · ${i.client.name}`,
-      initials: i.account.cm,
-    }));
-  }
-
-  // Store context as React state so ChatRail re-renders
-  setProjectContext({
-    clients:  clientItems.map(i => i.client),
-    accounts: accountItems.map(i => ({ ...i.account, clientName: i.client.name })),
-  });
-
-  setRailTab("chat");
-
-  const total = projectItems.length;
-  showToast(`${total} item${total !== 1 ? "s" : ""} sent to Quick Chat`);
-}
-  /*
-  function handleSendToAgent(projectItems) {
     const clientItems  = projectItems.filter(i => i.type === "client");
     const accountItems = projectItems.filter(i => i.type === "account");
 
@@ -675,40 +780,54 @@ const filteredItems = filter === "all"
       }));
     }
 
+    setProjectContext({
+      clients:  clientItems.map(i => i.client),
+      accounts: accountItems.map(i => ({ ...i.account, clientName: i.client.name })),
+    });
+
     setRailTab("chat");
     const total = projectItems.length;
-    showToast(`${total} item${total !== 1 ? "s" : ""} added to context — open Quick Chat to run an agent`);
+    showToast(`${total} item${total !== 1 ? "s" : ""} sent to Quick Chat`);
   }
-*/
- const navItems = [
-  {
-    icon: LayoutGrid,
-    label: "My Canvas",
-    active: navView === "canvas",
-    onClick: () => setNavView("canvas"),
-  },
-  {
-    icon: Zap,
-    label: "Agent Workspace",
-    active: navView === "dashboard",
-    onClick: () => {
-      setNavView("dashboard");
-      setStack([{ key: "root", title: "Agent Workspace", sub: "hover a card to run, click to explore" }]);
-      setFilter("agent");
-    },
-  },
-  {
-    icon: Users,
-    label: "My Clients",
-    active: navView === "clients",
-    onClick: () => setNavView("clients"),
-  },
-  { icon: FileText,  label: "My Agents"                            },
-  { icon: BarChart2, label: "Reports"                              },
-  { icon: Clock,     label: "Activity", badge: activeCount || null },
-  { icon: Settings,  label: "Settings"                             },
-];
 
+  // ── Nav items ─────────────────────────────────────────────────────────────
+  const navItems = [
+    {
+      icon: LayoutGrid,
+      label: "My Canvas",
+      active: navView === "canvas",
+      onClick: () => setNavView("canvas"),
+    },
+    {
+      icon: Briefcase,
+      label: "Agent Workspace",
+      active: navView === "agents",
+      onClick: () => {
+        setNavView("agents");
+        setStack([{ key: "root", title: "Agent Workspace", sub: "hover a card to run, click to explore" }]);
+        setFilter("agent");
+      },
+    },
+    {
+      icon: FolderOpen,
+      label: "Project Center",
+      active: navView === "projectCenter" || navView === "projectDetail",
+      badge: projects.length > 0 ? projects.length : null,
+      onClick: () => {
+        setNavView("projectCenter");
+        setActiveProject(null);
+      },
+    },
+    {
+      icon: Users,
+      label: "My Clients",
+      active: navView === "clients",
+      onClick: () => setNavView("clients"),
+    },
+    { icon: BarChart2, label: "Reports", active: navView === "reports", onClick: () => setNavView("reports") },
+    { icon: Clock,     label: "Activity", badge: activeCount || null },
+    { icon: Settings,  label: "Settings"  },
+  ];
 
   return (
     <>
@@ -761,22 +880,30 @@ const filteredItems = filter === "all"
           {/* TOPBAR */}
           <div style={{ height: 52, borderBottom: "1px solid #1e2029", display: "flex", alignItems: "center", padding: "0 24px", gap: 12, background: "#0c0d11", flexShrink: 0 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, flex: 1 }}>
-              <Home size={13} style={{ cursor: "pointer", color: "#8a8fa8" }} onClick={() => { setNavView("dashboard"); navigateTo(0); }} />
-             {navView === "canvas" ? (
-                  <span style={{ color: "#dde0f0", fontWeight: 500 }}>My Canvas</span>
-                ) : navView === "clients" ? (
-                  <span style={{ color: "#dde0f0", fontWeight: 500 }}>My Clients</span>
-                ) : (
-                  stack.map((s, i) => (
-                    <span key={i} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      {i > 0 && <ChevronRight size={11} color="#3a3d50" />}
-                      <span onClick={() => navigateTo(i)} style={{ cursor: i === stack.length - 1 ? "default" : "pointer", color: i === stack.length - 1 ? "#dde0f0" : "#8a8fa8", fontWeight: i === stack.length - 1 ? 500 : 400 }}>
-                        {s.title}
-                      </span>
+              <Home size={13} style={{ cursor: "pointer", color: "#8a8fa8" }} onClick={() => { setNavView("canvas"); }} />
+              {navView === "canvas" ? (
+                <span style={{ color: "#dde0f0", fontWeight: 500 }}>My Canvas</span>
+              ) : navView === "clients" ? (
+                <span style={{ color: "#dde0f0", fontWeight: 500 }}>My Clients</span>
+              ) : navView === "projectCenter" ? (
+                <span style={{ color: "#dde0f0", fontWeight: 500 }}>Project Center</span>
+              ) : navView === "projectDetail" && activeProject ? (
+                <>
+                  <span onClick={() => setNavView("projectCenter")} style={{ color: "#8a8fa8", cursor: "pointer" }}>Project Center</span>
+                  <ChevronRight size={11} color="#3a3d50" />
+                  <span style={{ color: "#dde0f0", fontWeight: 500 }}>{activeProject.name}</span>
+                </>
+              ) : (
+                stack.map((s, i) => (
+                  <span key={i} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    {i > 0 && <ChevronRight size={11} color="#3a3d50" />}
+                    <span onClick={() => navigateTo(i)} style={{ cursor: i === stack.length - 1 ? "default" : "pointer", color: i === stack.length - 1 ? "#dde0f0" : "#8a8fa8", fontWeight: i === stack.length - 1 ? 500 : 400 }}>
+                      {s.title}
                     </span>
-                  ))
-                )}
-              </div>
+                  </span>
+                ))
+              )}
+            </div>
             <div onClick={() => setDrawerOpen(true)} style={{ position: "relative", width: 32, height: 32, borderRadius: 8, border: "1px solid #1e2029", background: "#13151e", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#9096b0" }}>
               <Bell size={14} />
               {activeCount > 0 && <div style={{ position: "absolute", top: -3, right: -3, width: 14, height: 14, borderRadius: "50%", background: "#3a7de9", border: "2px solid #0c0d11", fontSize: 8, fontWeight: 700, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center" }}>{activeCount}</div>}
@@ -786,189 +913,296 @@ const filteredItems = filter === "all"
           {/* WORKSPACE BODY */}
           <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
 
-            {navView === "canvas" ? (
-  <>
-    <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
-      <MyCanvasView
-        onNavigateToAgent={(subKey, agentId, agentName) => {
-          // Navigate to Agent Workspace and drill into the correct workflow
-          setNavView("dashboard");
+            {/* ── MY CANVAS ── */}
+            {navView === "canvas" && (
+              <>
+                <div style={{ flex: 1, overflow: "hidden" }}>
+                  <MyCanvasView onNavigate={(subKey, agentId, agentName) => {
+                    setNavView("agents");
+                    setStack([
+                      { key: "root", title: "Agent Workspace", sub: "hover a card to run, click to explore" },
+                      { key: subKey, title: agentName, sub: "agent details" },
+                    ]);
+                    setFilter("all");
+                  }} />
+                </div>
+                <div style={{ width: 264, minWidth: 264, borderLeft: "1px solid #1e2029", background: "#0c0d11", display: "flex", flexDirection: "column" }}>
+                  <div style={{ display: "flex", borderBottom: "1px solid #1e2029", flexShrink: 0 }}>
+                    {[["activity","Activity"],["chat","Quick Chat"],["insights","Insights"]].map(([key, label]) => (
+                      <div key={key} onClick={() => setRailTab(key)}
+                        style={{ flex: 1, padding: "11px 4px", textAlign: "center", fontSize: 12, fontWeight: railTab === key ? 600 : 400, color: railTab === key ? "#7db8ff" : "#9096b0", borderBottom: `2px solid ${railTab === key ? "#3a7de9" : "transparent"}`, cursor: "pointer", transition: "all 0.15s" }}>
+                        {label}
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ flex: 1, overflowY: "auto", padding: 14, display: "flex", flexDirection: "column" }}>
+                    {railTab === "activity" && <ActivityRail jobs={jobs} />}
+                    {railTab === "chat" && <ChatRail advisorName={advisorName} onMentionClick={openMention} projectContext={projectContext} />}
+                    {railTab === "insights" && <InsightsRail />}
+                  </div>
+                </div>
+              </>
+            )}
 
-          // Find which top-level agent owns this sub
-          const parentMap = {
-            "sub-ag-01": "ag-01", "sub-ag-02": "ag-02", "sub-ag-03": "ag-03",
-            "sub-ag-04": "ag-04", "sub-ag-05": "ag-05", "sub-ag-06": "ag-06",
-            "sub-ag-07": "ag-07", "sub-ag-08": "ag-08", "sub-ag-09": "ag-09",
-          };
+            {/* ── MY CLIENTS VIEW ── */}
+            {navView === "clients" && (
+              <>
+                <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+                  <MyClientsView
+                    allClients={clientsData}
+                    onSendToAgent={(projectItems) => {
+                      const clients = projectItems.filter(i => i.type === "client").map(i => i.client);
+                      const name = `New Project — ${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
+                      const project = createProject(name);
+                      if (clients.length > 0) addClientsToProject(project.id, clients);
+                      setActiveProject(project);
+                      setNavView("projectDetail");
+                    }}
+                  />
+                </div>
+                <div style={{ width: 264, minWidth: 264, borderLeft: "1px solid #1e2029", background: "#0c0d11", display: "flex", flexDirection: "column", flexShrink: 0 }}>
+                  <div style={{ display: "flex", borderBottom: "1px solid #1e2029", flexShrink: 0 }}>
+                    {[["activity","Activity"],["chat","Quick Chat"],["insights","Insights"]].map(([key, label]) => (
+                      <div key={key} onClick={() => setRailTab(key)}
+                        style={{ flex: 1, padding: "11px 4px", textAlign: "center", fontSize: 12, fontWeight: railTab === key ? 600 : 400, color: railTab === key ? "#7db8ff" : "#9096b0", borderBottom: `2px solid ${railTab === key ? "#3a7de9" : "transparent"}`, cursor: "pointer", transition: "all 0.15s" }}>
+                        {label}
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ flex: 1, overflowY: "auto", padding: 14, display: "flex", flexDirection: "column" }}>
+                    {railTab === "activity" && <ActivityRail jobs={jobs} />}
+                    {railTab === "chat" && <ChatRail advisorName={advisorName} onMentionClick={openMention} projectContext={projectContext} />}
+                    {railTab === "insights" && <InsightsRail />}
+                  </div>
+                </div>
+              </>
+            )}
 
-          // Build the drill-down stack
-          // subKey might be a sub-ag-XX (one level) or sub-XXX / prompts-XXX (two levels)
-          const isDirectSub = subKey.startsWith("sub-ag-");
-          const isWorkflow  = subKey.startsWith("sub-") && !isDirectSub;
-          const isPrompt    = subKey.startsWith("prompts-");
+          
+            {/* ── REPORTS ── */}
+            {navView === "reports" && (
+              <>
+                <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+                  <ReportsView
+                    reports={reports}
+                    onDelete={deleteReport}
+                    onRename={renameReport}
+                  />
+                </div>
+                <div style={{ width: 264, minWidth: 264, borderLeft: "1px solid #1e2029", background: "#0c0d11", display: "flex", flexDirection: "column", flexShrink: 0 }}>
+                  <div style={{ display: "flex", borderBottom: "1px solid #1e2029", flexShrink: 0 }}>
+                    {[["activity","Activity"],["chat","Quick Chat"],["insights","Insights"]].map(([key, label]) => (
+                      <div key={key} onClick={() => setRailTab(key)}
+                        style={{ flex: 1, padding: "11px 4px", textAlign: "center", fontSize: 12, fontWeight: railTab === key ? 600 : 400, color: railTab === key ? "#7db8ff" : "#9096b0", borderBottom: `2px solid ${railTab === key ? "#3a7de9" : "transparent"}`, cursor: "pointer", transition: "all 0.15s" }}>
+                        {label}
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ flex: 1, overflowY: "auto", padding: 14, display: "flex", flexDirection: "column" }}>
+                    {railTab === "activity" && <ActivityRail jobs={jobs} />}
+                    {railTab === "chat" && <ChatRail advisorName={advisorName} onMentionClick={openMention} projectContext={projectContext} />}
+                    {railTab === "insights" && <InsightsRail />}
+                  </div>
+                </div>
+              </>
+            )}
 
-          if (isDirectSub) {
-            // Drill one level: root → agent sub-list
-            const agentItem = agentData["root"]?.find(a => a.id === agentId);
-            setStack([
-              { key: "root",  title: "Agent Workspace", sub: "hover a card to run, click to explore" },
-              { key: subKey,  title: agentName,          sub: `${agentData[subKey]?.length || 0} workflows` },
-            ]);
-          } else if (isWorkflow || isPrompt) {
-            // Find the parent sub-ag key by searching agentData
-            let parentSubKey = null;
-            let parentAgentName = agentName;
-            for (const [key, items] of Object.entries(agentData)) {
-              if (key.startsWith("sub-ag-") && Array.isArray(items)) {
-                if (items.some(i => i.subs === subKey || i.id === subKey.replace("prompts-", "sub-").replace(/\d+/, m => m))) {
-                  parentSubKey = key;
-                  break;
-                }
-              }
-            }
+            {/* ── PROJECT CENTER LEVEL 1 ── */}
+            {navView === "projectCenter" && (
+              <>
+                <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+                  <ProjectCenterView
+                    projects={projects}
+                    onCreateProject={(name) => {
+                      const p = createProject(name);
+                      return p;
+                    }}
+                    onDeleteProject={deleteProject}
+                    onOpenProject={(project) => {
+                      setActiveProject(project);
+                      setNavView("projectDetail");
+                    }}
+                  />
+                </div>
+                <div style={{ width: 264, minWidth: 264, borderLeft: "1px solid #1e2029", background: "#0c0d11", display: "flex", flexDirection: "column", flexShrink: 0 }}>
+                  <div style={{ display: "flex", borderBottom: "1px solid #1e2029", flexShrink: 0 }}>
+                    {[["activity","Activity"],["chat","Quick Chat"],["insights","Insights"]].map(([key, label]) => (
+                      <div key={key} onClick={() => setRailTab(key)}
+                        style={{ flex: 1, padding: "11px 4px", textAlign: "center", fontSize: 12, fontWeight: railTab === key ? 600 : 400, color: railTab === key ? "#7db8ff" : "#9096b0", borderBottom: `2px solid ${railTab === key ? "#3a7de9" : "transparent"}`, cursor: "pointer", transition: "all 0.15s" }}>
+                        {label}
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ flex: 1, overflowY: "auto", padding: 14, display: "flex", flexDirection: "column" }}>
+                    {railTab === "activity" && <ActivityRail jobs={jobs} />}
+                    {railTab === "chat" && <ChatRail advisorName={advisorName} onMentionClick={openMention} projectContext={projectContext} />}
+                    {railTab === "insights" && <InsightsRail />}
+                  </div>
+                </div>
+              </>
+            )}
 
-            // Find which workflow item has this subs value
-            let workflowItem = null;
-            let workflowSubKey = null;
-            for (const [key, items] of Object.entries(agentData)) {
-              if (key.startsWith("sub-ag-") && Array.isArray(items)) {
-                const found = items.find(i => i.subs === subKey || i.id === subKey);
-                if (found) {
-                  workflowItem = found;
-                  workflowSubKey = key;
-                  break;
-                }
-              }
-            }
+            {/* ── PROJECT CENTER LEVEL 2 ── */}
+            {navView === "projectDetail" && activeProject &&
+              projects.find(p => p.id === activeProject?.id) && (
+              <>
+                <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+                  <ProjectDetailView
+                    project={projects.find(p => p.id === activeProject.id)}
+                    allClients={clientsData}
+                    onBack={() => setNavView("projectCenter")}
+                    onAddClients={(clients) => addClientsToProject(activeProject.id, clients)}
+                    onRemoveClient={(clientId) => removeClientFromProject(activeProject.id, clientId)}
+                    onUploadDocument={(doc) => addDocumentToProject(activeProject.id, doc)}
+                    onRemoveDocument={(docId) => removeDocumentFromProject(activeProject.id, docId)}
+                    onRunAgent={(result) => {
+                      if (result.status === "running") {
+                        addResultToProject(activeProject.id, result);
+                      } else {
+                        updateResultStatus(activeProject.id, result.id, result.status);
+                      }
+                      setRailTab("activity");
+                    }}
+                    onSaveReport={(reportName, result, projectName) => {
+                      saveReport(reportName, result, projectName);
+                      showToast(`"${reportName}" saved to Reports`);
+                    }}
+                  />
+                </div>
+                <div style={{ width: 264, minWidth: 264, borderLeft: "1px solid #1e2029", background: "#0c0d11", display: "flex", flexDirection: "column", flexShrink: 0 }}>
+                  <div style={{ display: "flex", borderBottom: "1px solid #1e2029", flexShrink: 0 }}>
+                    {[["activity","Activity"],["chat","Quick Chat"],["insights","Insights"]].map(([key, label]) => (
+                      <div key={key} onClick={() => setRailTab(key)}
+                        style={{ flex: 1, padding: "11px 4px", textAlign: "center", fontSize: 12, fontWeight: railTab === key ? 600 : 400, color: railTab === key ? "#7db8ff" : "#9096b0", borderBottom: `2px solid ${railTab === key ? "#3a7de9" : "transparent"}`, cursor: "pointer", transition: "all 0.15s" }}>
+                        {label}
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ flex: 1, overflowY: "auto", padding: 14, display: "flex", flexDirection: "column" }}>
+                    {railTab === "activity" && <ActivityRail jobs={jobs} />}
+                    {railTab === "chat" && <ChatRail advisorName={advisorName} onMentionClick={openMention} projectContext={projectContext} />}
+                    {railTab === "insights" && <InsightsRail />}
+                  </div>
+                </div>
+              </>
+            )}
 
-            if (workflowItem && workflowSubKey) {
-              const targetKey  = workflowItem.subs || workflowItem.id;
-              const isPromptV  = targetKey?.startsWith("prompts-");
-              setStack([
-                { key: "root",         title: "Agent Workspace", sub: "hover a card to run, click to explore" },
-                { key: workflowSubKey, title: agentName,          sub: `${agentData[workflowSubKey]?.length || 0} workflows` },
-                { key: targetKey,      title: workflowItem.name,  sub: isPromptV ? `${agentData[targetKey]?.length || 0} steps · review and run the workflow` : workflowItem.desc },
-              ]);
-            } else {
-              // Fallback: just go to the sub-list
-              const parentKey = Object.keys(parentMap).find(k => parentMap[k] === agentId) || `sub-${agentId.replace("ag-","ag-0")}`;
-              setStack([
-                { key: "root",    title: "Agent Workspace", sub: "hover a card to run, click to explore" },
-                { key: parentKey, title: agentName,          sub: `${agentData[parentKey]?.length || 0} workflows` },
-              ]);
-            }
-          }
+            {/* ── AGENT WORKSPACE ── */}
+            {navView !== "clients" && navView === "agents" && (
+              <>
+                {/* GRID */}
+                <div style={{ flex: 1, overflowY: "auto", padding: "20px 24px" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
+                    <div>
+                      <div style={{ fontSize: 18, fontWeight: 700, color: "#eceef5" }}>
+                        {stack[stack.length - 1].title}
+                      </div>
+                      <div style={{ fontSize: 12, color: "#8a8fa8", marginTop: 2 }}>
+                        {stack[stack.length - 1].sub}
+                      </div>
+                    </div>
+                    {!isPromptView && (
+                      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                        {FILTERS.map(f => (
+                          <button key={f.key} onClick={() => setFilter(f.key)} style={{
+                            padding: "6px 14px", borderRadius: 20,
+                            border: `1px solid ${filter === f.key ? "#2a5090" : "#2a2d3a"}`,
+                            background: filter === f.key ? "#152640" : "transparent",
+                            color: filter === f.key ? "#7db8ff" : "#9096b0",
+                            fontSize: 12, fontWeight: filter === f.key ? 600 : 400,
+                            cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s",
+                          }}>
+                            {f.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
 
-          setFilter("all");
-        }}
-      />
-    </div>
-    <RightRail
-      railTab={railTab}
-      setRailTab={setRailTab}
-      jobs={jobs}
-      advisorName={advisorName}
-      onMentionClick={openMention}
-      projectContext={projectContext}
-    />
-  </>
+                  {isPromptView ? (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth: 640 }}>
+                      {items.map(item => (
+                        <PromptStep key={item.id} item={item} onMentionClick={openMention} />
+                      ))}
+                      <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+                        <button
+                          onClick={() => handleRun({ id: currentKey, name: stack[stack.length - 1].title })}
+                          style={{ flex: 1, padding: "9px 16px", borderRadius: 6, border: "1px solid #2a4a8a", background: "#0e1e38", color: "#7db8ff", fontSize: 13, cursor: "pointer", fontFamily: "inherit", fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
+                        >
+                          <Play size={12} /> Run Full Workflow
+                        </button>
+                        <button style={{ padding: "9px 16px", borderRadius: 6, border: "1px solid #2a2d3a", background: "transparent", color: "#9096b0", fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>
+                          Run for One Client
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
+                      {filteredItems.map(item => (
+                        <AgentCard
+                          key={item.id}
+                          item={item}
+                          onDrill={handleDrill}
+                          onRun={handleRun}
+                          isRunning={!!runningIds[item.id]}
+                        />
+                      ))}
+                      {filteredItems.length === 0 && (
+                        <div style={{ gridColumn: "span 3", fontSize: 13, color: "#7a7e94", padding: "40px 0", textAlign: "center" }}>
+                          No {filter === "all" ? "items" : `${filter}s`} at this level.
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
 
-) : navView === "clients" ? (
-  <>
-    <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
-      <MyClientsView
-        allClients={clientsData}
-        onSendToAgent={handleSendToAgent}
-      />
-    </div>
-    <RightRail
-      railTab={railTab}
-      setRailTab={setRailTab}
-      jobs={jobs}
-      advisorName={advisorName}
-      onMentionClick={openMention}
-      projectContext={projectContext}
-    />
-  </>
+                {/* RIGHT RAIL */}
+                <div style={{ width: 264, minWidth: 264, borderLeft: "1px solid #1e2029", background: "#0c0d11", display: "flex", flexDirection: "column" }}>
+                  <div style={{ display: "flex", borderBottom: "1px solid #1e2029", flexShrink: 0 }}>
+                    {[["activity","Activity"],["chat","Quick Chat"],["insights","Insights"]].map(([key, label]) => (
+                      <div key={key} onClick={() => setRailTab(key)}
+                        style={{ flex: 1, padding: "11px 4px", textAlign: "center", fontSize: 12, fontWeight: railTab === key ? 600 : 400, color: railTab === key ? "#7db8ff" : "#9096b0", borderBottom: `2px solid ${railTab === key ? "#3a7de9" : "transparent"}`, cursor: "pointer", transition: "all 0.15s" }}>
+                        {label}
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ flex: 1, overflowY: "auto", padding: 14, display: "flex", flexDirection: "column" }}>
+                    {railTab === "activity" && <ActivityRail jobs={jobs} />}
+                    {railTab === "chat" && <ChatRail advisorName={advisorName} onMentionClick={openMention} projectContext={projectContext} />}
+                    {railTab === "insights" && <InsightsRail />}
+                  </div>
+                </div>
+              </>
+            )}
 
-) : (
-  <>
-    <div style={{ flex: 1, overflowY: "auto", padding: "20px 24px" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
-        <div>
-          <div style={{ fontSize: 18, fontWeight: 700, color: "#eceef5" }}>{stack[stack.length - 1].title}</div>
-          <div style={{ fontSize: 12, color: "#8a8fa8", marginTop: 2 }}>{stack[stack.length - 1].sub}</div>
-        </div>
-        {!isPromptView && (
-          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-            {FILTERS.map(f => (
-              <button key={f.key} onClick={() => setFilter(f.key)} style={{
-                padding: "6px 14px", borderRadius: 20,
-                border: `1px solid ${filter === f.key ? "#2a5090" : "#2a2d3a"}`,
-                background: filter === f.key ? "#152640" : "transparent",
-                color: filter === f.key ? "#7db8ff" : "#9096b0",
-                fontSize: 12, fontWeight: filter === f.key ? 600 : 400,
-                cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s",
-              }}>
-                {f.label}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
+            {/* RESULTS DRAWER — always mounted, slides in over any view */}
+            <ResultsDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} jobId={activeJobId} />
 
-      {isPromptView ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth: 640 }}>
-          {items.map(item => <PromptStep key={item.id} item={item} onMentionClick={openMention} />)}
-          <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
-            <button onClick={() => handleRun({ id: currentKey, name: stack[stack.length - 1].title })}
-              style={{ flex: 1, padding: "9px 16px", borderRadius: 6, border: "1px solid #2a4a8a", background: "#0e1e38", color: "#7db8ff", fontSize: 13, cursor: "pointer", fontFamily: "inherit", fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-              <Play size={12} /> Run Full Workflow
-            </button>
-            <button style={{ padding: "9px 16px", borderRadius: 6, border: "1px solid #2a2d3a", background: "transparent", color: "#9096b0", fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>
-              Run for One Client
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
-          {filteredItems.map(item => <AgentCard key={item.id} item={item} onDrill={handleDrill} onRun={handleRun} isRunning={!!runningIds[item.id]} />)}
-          {filteredItems.length === 0 && (
-            <div style={{ gridColumn: "span 3", fontSize: 13, color: "#7a7e94", padding: "40px 0", textAlign: "center" }}>
-              No {filter === "all" ? "items" : `${filter}s`} at this level.
+            {/* SHARED @MENTION POPUP — always mounted */}
+            <MentionPopup
+              state={mentionState}
+              onSelect={handleMentionSelect}
+              onClose={() => setMentionState(s => ({ ...s, visible: false }))}
+            />
+
+          </div>{/* end WORKSPACE BODY */}
+
+
+          {/* FLOATING CHAT BUTTON — always visible, opens full chat panel */}
+          {navView !== "agents" && (
+            <FloatingChat advisorName={advisorName} onMentionClick={openMention} projectContext={projectContext} />
+          )}
+
+          {/* TOAST */}
+          {toast && (
+            <div style={{ position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)", background: "#13151e", border: "1px solid #2a3a60", borderRadius: 8, padding: "10px 18px", fontSize: 13, color: "#b0b8d0", display: "flex", alignItems: "center", gap: 10, whiteSpace: "nowrap", boxShadow: "0 8px 24px rgba(0,0,0,0.5)", zIndex: 60 }}>
+              <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#3a7de9", flexShrink: 0 }} />
+              {toast}
             </div>
           )}
-        </div>
-      )}
-    </div>
-    <RightRail
-      railTab={railTab}
-      setRailTab={setRailTab}
-      jobs={jobs}
-      advisorName={advisorName}
-      onMentionClick={openMention}
-      projectContext={projectContext}
-    />
-  </>
-)}
 
-          </div>
-        </div>
-
-        {/* RESULTS DRAWER */}
-        <ResultsDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} jobId={activeJobId} />
-
-        {/* MENTION POPUP */}
-        <MentionPopup state={mentionState} onSelect={handleMentionSelect} onClose={() => setMentionState(s => ({ ...s, visible: false }))} />
-
-        {/* TOAST */}
-        {toast && (
-          <div style={{ position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)", background: "#13151e", border: "1px solid #2a3a60", borderRadius: 8, padding: "10px 18px", fontSize: 13, color: "#b0b8d0", display: "flex", alignItems: "center", gap: 10, whiteSpace: "nowrap", boxShadow: "0 8px 24px rgba(0,0,0,0.5)", zIndex: 60 }}>
-            <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#3a7de9", flexShrink: 0 }} />
-            {toast}
-          </div>
-        )}
-      </div>
+        </div>{/* end MAIN */}
+      </div>{/* end shell */}
     </>
   );
 }
