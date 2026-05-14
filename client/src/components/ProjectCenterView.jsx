@@ -1,328 +1,246 @@
 // client/src/components/ProjectCenterView.jsx
-// Level 1 — shows all projects as cards. Click a card to drill into ProjectDetailView.
-// New file — does not modify WealthAssistant.jsx or MyClientsView.jsx.
+// "Custom Workspace" — all internal labels use "Workspace" not "Project".
+// Uses CSS custom properties for full light/dark theme support.
 
 import { useState } from "react";
-import { FolderOpen, Plus, Trash2, Users, FileText, BarChart2, Clock, ChevronRight, X } from "lucide-react";
+import {
+  FolderOpen, Plus, Trash2, Users, FileText, BarChart2,
+  ChevronRight, Clock, CheckCircle, AlertCircle, X,
+} from "lucide-react";
 
-// ── Color palette — slightly lighter surface than main shell ──────────────────
+// CSS vars with dark fallbacks — parent (.wa-shell) overrides for light theme
 const C = {
-  bg: "#0d0f16",
-  surface: "#13161f",
-  surface2: "#191c28",
-  border: "#22253a",
-  border2: "#2e3250",
-  text: "#eceef5",
-  textMid: "#b0b8d0",
-  textMuted: "#8a8fa8",
-  textDim: "#6a6e88",
-  blue: "#7db8ff",
-  blueBg: "#0e1e38",
-  blueBorder: "#2a4a8a",
-  teal: "#2dbe8a",
-  tealBg: "#0a2820",
-  tealBorder: "#1a6a50",
-  amber: "#e09040",
-  amberBg: "#221800",
-  amberBorder: "#5a3a10",
-  purple: "#a882ff",
-  purpleBg: "#180f30",
-  purpleBorder: "#4a3080",
-  coral: "#f07850",
-  coralBg: "#221008",
-  coralBorder: "#6a3020",
+  bg:          "var(--c-bg,          #0a0b0d)",
+  surface:     "var(--c-surface,     #0f1014)",
+  surface2:    "var(--c-surface2,    #13151e)",
+  surface3:    "var(--c-surface3,    #181a22)",
+  border:      "var(--c-border,      #1e2029)",
+  border2:     "var(--c-border2,     #2a2d3a)",
+  text:        "var(--c-text,        #eceef5)",
+  textMid:     "var(--c-textMid,     #b0b8d0)",
+  textMuted:   "var(--c-textMuted,   #8a8fa8)",
+  textDim:     "var(--c-textDim,     #7a7e94)",
+  blue:        "var(--c-blue,        #7db8ff)",
+  blueBg:      "var(--c-blueBg,      #0e1e38)",
+  blueBorder:  "var(--c-blueBorder,  #2a4a8a)",
+  teal:        "var(--c-teal,        #2dbe8a)",
+  tealBg:      "var(--c-tealBg,      #0a2820)",
+  tealBorder:  "var(--c-tealBorder,  #1a6a50)",
+  amber:       "var(--c-amber,       #e09040)",
+  amberBg:     "var(--c-amberBg,     #221800)",
+  amberBorder: "var(--c-amberBorder, #5a3a10)",
+  purple:      "var(--c-purple,      #a882ff)",
+  purpleBg:    "var(--c-purpleBg,    #180f30)",
+  purpleBorder:"var(--c-purpleBorder,#4a3080)",
+  coral:       "var(--c-coral,       #f07850)",
+  coralBg:     "var(--c-coralBg,     #221008)",
+  coralBorder: "var(--c-coralBorder, #6a3020)",
 };
 
-// ── New Project Modal ─────────────────────────────────────────────────────────
-function NewProjectModal({ open, onCreate, onClose }) {
-  const [name, setName] = useState("");
-
-  function handleCreate() {
-    if (!name.trim()) return;
-    onCreate(name.trim());
-    setName("");
-    onClose();
-  }
-
-  if (!open) return null;
-
-  return (
-    // Faux modal overlay — in normal flow so iframe heights correctly
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <div style={{ background: C.surface, border: `1px solid ${C.border2}`, borderRadius: 12, padding: 28, width: 380, boxShadow: "0 24px 48px rgba(0,0,0,0.6)" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
-          <div style={{ fontSize: 16, fontWeight: 700, color: C.text }}>New Project</div>
-          <button onClick={onClose} style={{ background: "none", border: "none", color: C.textMuted, cursor: "pointer", display: "flex", alignItems: "center" }}>
-            <X size={16} />
-          </button>
-        </div>
-        <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 8 }}>Project name</div>
-        <input
-          autoFocus
-          value={name}
-          onChange={e => setName(e.target.value)}
-          onKeyDown={e => { if (e.key === "Enter") handleCreate(); if (e.key === "Escape") onClose(); }}
-          placeholder="e.g. Smith Family — Q3 Review"
-          style={{ width: "100%", padding: "9px 12px", background: C.surface2, border: `1px solid ${C.border2}`, borderRadius: 7, fontSize: 13, color: C.text, fontFamily: "inherit", outline: "none", boxSizing: "border-box" }}
-        />
-        <div style={{ fontSize: 11, color: C.textDim, marginTop: 8, marginBottom: 20 }}>
-          You can add clients, documents, and run agents after creating the project.
-        </div>
-        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-          <button onClick={onClose} style={{ padding: "8px 16px", borderRadius: 6, border: `1px solid ${C.border2}`, background: "transparent", color: C.textMuted, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>
-            Cancel
-          </button>
-          <button onClick={handleCreate} disabled={!name.trim()} style={{ padding: "8px 18px", borderRadius: 6, border: `1px solid ${name.trim() ? C.blueBorder : C.border}`, background: name.trim() ? C.blueBg : "transparent", color: name.trim() ? C.blue : C.textDim, fontSize: 13, fontWeight: 600, cursor: name.trim() ? "pointer" : "not-allowed", fontFamily: "inherit" }}>
-            Create Project
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+function fmtDate(iso) {
+  return new Date(iso).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"});
 }
 
 // ── Status pill ───────────────────────────────────────────────────────────────
 function StatusPill({ project }) {
-  const running = project.results.filter(r => r.status === "running").length;
-  const done = project.results.filter(r => r.status === "done").length;
-  const notRun = project.results.length === 0;
-
-  if (running > 0) return (
-    <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 4, background: C.blueBg, color: C.blue, border: `1px solid ${C.blueBorder}` }}>
-      {running} running
+  const hasResults  = (project.results||[]).length > 0;
+  const hasClients  = (project.clients||[]).length > 0;
+  const running     = (project.results||[]).some(r=>r.status==="running");
+  if (running) return (
+    <span style={{ fontSize:9,padding:"2px 8px",borderRadius:20,background:C.tealBg,color:C.teal,border:`1px solid ${C.tealBorder}`,fontWeight:700,display:"inline-flex",alignItems:"center",gap:4 }}>
+      <span style={{ width:5,height:5,borderRadius:"50%",background:C.teal,display:"inline-block",animation:"pcDot 1.2s infinite" }}/>Running
     </span>
   );
-  if (done > 0) return (
-    <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 4, background: C.tealBg, color: C.teal, border: `1px solid ${C.tealBorder}` }}>
-      {done} result{done !== 1 ? "s" : ""}
-    </span>
+  if (hasResults) return (
+    <span style={{ fontSize:9,padding:"2px 8px",borderRadius:20,background:C.blueBg,color:C.blue,border:`1px solid ${C.blueBorder}`,fontWeight:700 }}>Results ready</span>
+  );
+  if (hasClients) return (
+    <span style={{ fontSize:9,padding:"2px 8px",borderRadius:20,background:C.amberBg,color:C.amber,border:`1px solid ${C.amberBorder}`,fontWeight:700 }}>In progress</span>
   );
   return (
-    <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 4, background: C.surface2, color: C.textDim, border: `1px solid ${C.border}` }}>
-      not run
-    </span>
+    <span style={{ fontSize:9,padding:"2px 8px",borderRadius:20,background:C.surface2,color:C.textDim,border:`1px solid ${C.border}`,fontWeight:700 }}>Empty</span>
   );
 }
 
-// ── Project Card ──────────────────────────────────────────────────────────────
-function ProjectCard({ project, onClick, onDelete }) {
+// ── Workspace card ────────────────────────────────────────────────────────────
+function WorkspaceCard({ project, onOpen, onDelete }) {
   const [hovered, setHovered] = useState(false);
-  const [deleteHovered, setDeleteHovered] = useState(false);
-
-  const clientCount = project.clients.length;
-  const docCount = project.documents.length;
-  const agentCount = project.results.length;
-
-  const createdDate = new Date(project.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  const clientCount  = (project.clients||[]).length;
+  const docCount     = (project.documents||[]).length;
+  const agentCount   = (project.results||[]).length;
 
   return (
     <div
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => { setHovered(false); setDeleteHovered(false); }}
-      onClick={onClick}
-      style={{
-        background: hovered ? C.surface2 : C.surface,
-        border: `1px solid ${hovered ? C.border2 : C.border}`,
-        borderRadius: 12,
-        padding: "18px 20px",
-        cursor: "pointer",
-        position: "relative",
-        transition: "all 0.18s",
-        transform: hovered ? "translateY(-2px)" : "none",
-        // Subtle left accent
-        borderLeft: `3px solid ${hovered ? C.blue : C.border2}`,
-      }}
-    >
-      {/* Delete button */}
-      <button
-        onClick={e => { e.stopPropagation(); onDelete(project.id); }}
-        onMouseEnter={() => setDeleteHovered(true)}
-        onMouseLeave={() => setDeleteHovered(false)}
-        style={{
-          position: "absolute", top: 14, right: 14,
-          width: 24, height: 24, borderRadius: 5,
-          background: deleteHovered ? C.coralBg : "transparent",
-          border: `1px solid ${deleteHovered ? C.coralBorder : "transparent"}`,
-          color: deleteHovered ? C.coral : C.textDim,
-          cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-          opacity: hovered ? 1 : 0,
-          transition: "all 0.15s",
-        }}
-      >
-        <Trash2 size={11} />
-      </button>
+      onClick={()=>onOpen(project)}
+      onMouseEnter={()=>setHovered(true)}
+      onMouseLeave={()=>setHovered(false)}
+      style={{ background:C.surface,border:`1px solid ${hovered?C.blue:C.border}`,borderRadius:12,padding:16,cursor:"pointer",transition:"border-color .15s,box-shadow .15s",boxShadow:hovered?"0 4px 16px rgba(0,0,0,.2)":"none",position:"relative" }}>
 
-      {/* Icon + name */}
-      <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 14 }}>
-        <div style={{ width: 38, height: 38, borderRadius: 9, background: C.blueBg, border: `1px solid ${C.blueBorder}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-          <FolderOpen size={18} color={C.blue} />
-        </div>
-        <div style={{ flex: 1, paddingRight: 20 }}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: C.text, lineHeight: 1.3, marginBottom: 4 }}>
-            {project.name}
-          </div>
-          <div style={{ fontSize: 11, color: C.textDim }}>
-            Created {createdDate}
-          </div>
-        </div>
-      </div>
-
-      {/* Stats row */}
-      <div style={{ display: "flex", gap: 16, marginBottom: 14 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-          <Users size={11} color={C.textDim} />
-          <span style={{ fontSize: 12, color: clientCount > 0 ? C.textMid : C.textDim }}>
-            {clientCount} client{clientCount !== 1 ? "s" : ""}
-          </span>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-          <FileText size={11} color={C.textDim} />
-          <span style={{ fontSize: 12, color: docCount > 0 ? C.textMid : C.textDim }}>
-            {docCount} doc{docCount !== 1 ? "s" : ""}
-          </span>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-          <BarChart2 size={11} color={C.textDim} />
-          <span style={{ fontSize: 12, color: agentCount > 0 ? C.textMid : C.textDim }}>
-            {agentCount} agent run{agentCount !== 1 ? "s" : ""}
-          </span>
-        </div>
-      </div>
-
-      {/* Status + drill arrow */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <StatusPill project={project} />
-        <ChevronRight size={14} color={hovered ? C.blue : C.textDim} style={{ transition: "color 0.15s" }} />
-      </div>
-    </div>
-  );
-}
-
-// ── Empty State ───────────────────────────────────────────────────────────────
-function EmptyState({ onCreate }) {
-  const steps = [
-    { n: "1", color: C.blue,   bg: C.blueBg,   border: C.blueBorder,   title: "Create a Project",     body: "Name it anything — a client family, a batch workflow, a seasonal review cycle." },
-    { n: "2", color: C.teal,   bg: C.tealBg,   border: C.tealBorder,   title: "Add Clients & Docs",   body: "Pull clients from My Clients, or upload fact sheets, proposals, and PDFs." },
-    { n: "3", color: C.amber,  bg: C.amberBg,  border: C.amberBorder,  title: "Select an Agent",      body: "Choose an Agent and Skill — Tax Loss Harvesting, Holdings Audit, Outreach Drafts, and more." },
-    { n: "4", color: C.purple, bg: C.purpleBg, border: C.purpleBorder, title: "Review & Save Results", body: "Results appear instantly. Chat with them, export to PDF, or save to your Reports library." },
-  ];
-  return (
-    <div style={{ flex: 1, overflowY: "auto", padding: "48px 64px", display: "flex", flexDirection: "column", alignItems: "center", gap: 40 }}>
-      {/* Hero */}
-      <div style={{ textAlign: "center", maxWidth: 560 }}>
-        <div style={{ width: 72, height: 72, borderRadius: 20, background: C.surface2, border: `1px solid ${C.border2}`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 20px" }}>
-          <FolderOpen size={32} color={C.blue} />
-        </div>
-        <div style={{ fontSize: 26, fontWeight: 700, color: C.text, marginBottom: 12 }}>Welcome to Project Center</div>
-        <div style={{ fontSize: 14, color: C.textMuted, lineHeight: 1.7, marginBottom: 28 }}>
-          Projects let you group clients, documents, and agent results into named workspaces — so you can run batch workflows, track outcomes, and build a paper trail for compliance.
-        </div>
-        <button onClick={onCreate}
-          style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "11px 24px", borderRadius: 9, border: `1px solid ${C.blueBorder}`, background: C.blueBg, color: C.blue, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
-          <Plus size={16} /> Create your first project
+      {/* Delete button (top-right, visible on hover) */}
+      {hovered&&(
+        <button
+          onClick={e=>{e.stopPropagation();if(confirm(`Delete "${project.name}"?`))onDelete(project.id);}}
+          style={{ position:"absolute",top:10,right:10,background:"none",border:"none",cursor:"pointer",color:C.textDim,display:"flex",padding:4,borderRadius:6 }}
+          onMouseEnter={e=>e.currentTarget.style.color=C.coral}
+          onMouseLeave={e=>e.currentTarget.style.color=C.textDim}>
+          <Trash2 size={13}/>
         </button>
-      </div>
+      )}
 
-      {/* How it works */}
-      <div style={{ width: "100%", maxWidth: 800 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: C.textDim, textTransform: "uppercase", letterSpacing: "0.09em", textAlign: "center", marginBottom: 20 }}>How it works</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
-          {steps.map(s => (
-            <div key={s.n} style={{ background: s.bg, border: `1px solid ${s.border}`, borderRadius: 14, padding: "20px 18px" }}>
-              <div style={{ width: 32, height: 32, borderRadius: 8, background: `${s.color}22`, border: `1px solid ${s.color}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 800, color: s.color, marginBottom: 14 }}>
-                {s.n}
-              </div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: s.color, marginBottom: 8 }}>{s.title}</div>
-              <div style={{ fontSize: 12, color: C.textMid, lineHeight: 1.65 }}>{s.body}</div>
-            </div>
-          ))}
+      {/* Icon + Name */}
+      <div style={{ display:"flex",alignItems:"center",gap:10,marginBottom:10 }}>
+        <div style={{ width:36,height:36,borderRadius:9,background:C.blueBg,border:`1px solid ${C.blueBorder}`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0 }}>
+          <FolderOpen size={17} color={C.blue}/>
+        </div>
+        <div style={{minWidth:0}}>
+          <div style={{ fontSize:14,fontWeight:600,color:C.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{project.name}</div>
+          <div style={{ fontSize:10,color:C.textDim,marginTop:1,display:"flex",alignItems:"center",gap:4 }}>
+            <Clock size={9}/>{fmtDate(project.createdAt)}
+          </div>
         </div>
       </div>
 
-      {/* Example projects */}
-      <div style={{ width: "100%", maxWidth: 800 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: C.textDim, textTransform: "uppercase", letterSpacing: "0.09em", marginBottom: 16 }}>Example projects to get you started</div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
-          {[
-            { name: "Smith Family — Q3 Review",  clients: "3 clients",  skill: "Tax Loss Harvesting",     color: C.teal,   bg: C.tealBg,   border: C.tealBorder },
-            { name: "Oct Tax Loss Batch",         clients: "28 clients", skill: "Holdings Audit",           color: C.blue,   bg: C.blueBg,   border: C.blueBorder },
-            { name: "High-Value Prospect Push",   clients: "7 prospects",skill: "Prospect Outreach Draft",  color: C.purple, bg: C.purpleBg, border: C.purpleBorder },
-          ].map(ex => (
-            <div key={ex.name} onClick={onCreate}
-              style={{ background: ex.bg, border: `1px solid ${ex.border}`, borderRadius: 12, padding: "16px 18px", cursor: "pointer" }}
-              onMouseEnter={e => e.currentTarget.style.opacity = "0.8"}
-              onMouseLeave={e => e.currentTarget.style.opacity = "1"}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: ex.color, marginBottom: 8, lineHeight: 1.3 }}>{ex.name}</div>
-              <div style={{ fontSize: 11, color: C.textMid, marginBottom: 4 }}>{ex.clients}</div>
-              <div style={{ fontSize: 10, color: ex.color, opacity: 0.7 }}>Skill: {ex.skill}</div>
-            </div>
-          ))}
-        </div>
+      {/* Stats */}
+      <div style={{ display:"flex",gap:12,marginBottom:12 }}>
+        {[
+          { icon:Users,     value:clientCount,  label:`client${clientCount!==1?"s":""}`,    clr:C.blue  },
+          { icon:FileText,  value:docCount,     label:`doc${docCount!==1?"s":""}`,          clr:C.teal  },
+          { icon:BarChart2, value:agentCount,   label:`agent run${agentCount!==1?"s":""}`,  clr:C.amber },
+        ].map((m,i)=>(
+          <div key={i} style={{ display:"flex",alignItems:"center",gap:4 }}>
+            <m.icon size={11} color={m.value>0?m.clr:C.textDim}/>
+            <span style={{ fontSize:11,color:m.value>0?C.textMid:C.textDim }}>{m.value} {m.label}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Status + arrow */}
+      <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between" }}>
+        <StatusPill project={project}/>
+        <ChevronRight size={14} color={hovered?C.blue:C.textDim} style={{transition:"color .15s"}}/>
       </div>
     </div>
   );
 }
 
-// ── Main ProjectCenterView ────────────────────────────────────────────────────
-export default function ProjectCenterView({ projects, onCreateProject, onDeleteProject, onOpenProject }) {
-  const [modalOpen, setModalOpen] = useState(false);
-
-  function handleCreate(name) {
-    const project = onCreateProject(name);
-    // Auto-open the new project
-    if (project) onOpenProject(project);
-  }
-
-  const totalClients = projects.reduce((s, p) => s + p.clients.length, 0);
-  const running = projects.reduce((s, p) => s + p.results.filter(r => r.status === "running").length, 0);
-
+// ── New Workspace modal ───────────────────────────────────────────────────────
+function NewWorkspaceModal({ onSave, onClose }) {
+  const [name, setName] = useState("");
+  function submit() { if (name.trim()) { onSave(name.trim()); onClose(); } }
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", background: C.bg }}>
-
-      {/* Header */}
-      <div style={{ padding: "18px 24px 14px", borderBottom: `1px solid ${C.border}`, background: "#0c0d11", flexShrink: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-          <div>
-            <div style={{ fontSize: 18, fontWeight: 700, color: C.text }}>Project Center</div>
-            <div style={{ fontSize: 12, color: C.textDim, marginTop: 3 }}>
-              {projects.length} project{projects.length !== 1 ? "s" : ""}
-              {totalClients > 0 && ` · ${totalClients} clients`}
-              {running > 0 && <span style={{ color: C.blue, marginLeft: 8 }}>● {running} running</span>}
-            </div>
-          </div>
-          <button
-            onClick={() => setModalOpen(true)}
-            style={{ display: "flex", alignItems: "center", gap: 7, padding: "8px 16px", borderRadius: 7, border: `1px solid ${C.blueBorder}`, background: C.blueBg, color: C.blue, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}
-          >
-            <Plus size={14} /> New Project
+    <div style={{ position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:100,display:"flex",alignItems:"center",justifyContent:"center" }}>
+      <div style={{ background:C.surface,border:`1px solid ${C.border}`,borderRadius:14,padding:28,width:420,boxShadow:"0 24px 48px rgba(0,0,0,0.5)" }}>
+        <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20 }}>
+          <div style={{ fontSize:16,fontWeight:700,color:C.text }}>New Workspace</div>
+          <button onClick={onClose} style={{ background:"none",border:"none",cursor:"pointer",color:C.textDim }}><X size={16}/></button>
+        </div>
+        <div style={{ fontSize:12,color:C.textDim,marginBottom:14 }}>Give your workspace a name. You can add clients, documents, and run agents after creating it.</div>
+        <input
+          value={name} onChange={e=>setName(e.target.value)} autoFocus placeholder="e.g. Smith Family Tax Review, Q4 Rebalancing…"
+          onKeyDown={e=>e.key==="Enter"&&submit()}
+          style={{ width:"100%",padding:"10px 12px",background:C.surface2,border:`1px solid ${C.border}`,borderRadius:8,color:C.text,fontSize:13,fontFamily:"inherit",outline:"none",marginBottom:16,boxSizing:"border-box" }}/>
+        <div style={{display:"flex",gap:10}}>
+          <button onClick={submit} disabled={!name.trim()}
+            style={{ flex:1,padding:"9px",background:name.trim()?C.blue:C.surface2,color:name.trim()?"#fff":C.textDim,border:"none",borderRadius:8,fontSize:13,fontWeight:600,cursor:name.trim()?"pointer":"not-allowed",fontFamily:"inherit" }}>
+            Create Workspace
+          </button>
+          <button onClick={onClose}
+            style={{ padding:"9px 18px",background:"transparent",color:C.textDim,border:`1px solid ${C.border}`,borderRadius:8,fontSize:13,cursor:"pointer",fontFamily:"inherit" }}>
+            Cancel
           </button>
         </div>
       </div>
+    </div>
+  );
+}
 
-      {/* Content */}
-      {projects.length === 0 ? (
-        <EmptyState onCreate={() => setModalOpen(true)} />
-      ) : (
-        <div style={{ flex: 1, overflowY: "auto", padding: "24px" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 14 }}>
-            {projects.map(project => (
-              <ProjectCard
-                key={project.id}
-                project={project}
-                onClick={() => onOpenProject(project)}
-                onDelete={onDeleteProject}
-              />
-            ))}
+// ── Empty state ───────────────────────────────────────────────────────────────
+function EmptyState({ onCreate }) {
+  const steps = [
+    { n:"1", clr:C.blue,   bg:C.blueBg,   border:C.blueBorder,   title:"Create a Workspace",    body:"Name it anything — a client family, a batch workflow, or a seasonal review cycle." },
+    { n:"2", clr:C.teal,   bg:C.tealBg,   border:C.tealBorder,   title:"Add Clients & Docs",    body:"Pull clients from My Clients, or upload fact sheets, proposals, and PDFs." },
+    { n:"3", clr:C.amber,  bg:C.amberBg,  border:C.amberBorder,  title:"Select an Agent",       body:"Choose from Tax Loss Harvesting, Holdings Audit, Outreach Drafts, and more." },
+    { n:"4", clr:C.purple, bg:C.purpleBg, border:C.purpleBorder, title:"Review & Save Results", body:"Results appear instantly. Chat with them, export to PDF, or save to Reports." },
+  ];
+  return (
+    <div style={{ flex:1,overflowY:"auto",padding:"48px 64px",display:"flex",flexDirection:"column",alignItems:"center",gap:40 }}>
+      <div style={{ textAlign:"center",maxWidth:560 }}>
+        <div style={{ width:72,height:72,borderRadius:20,background:C.surface2,border:`1px solid ${C.border}`,display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 20px" }}>
+          <FolderOpen size={32} color={C.blue}/>
+        </div>
+        <div style={{ fontSize:26,fontWeight:700,color:C.text,marginBottom:12 }}>Welcome to Custom Workspace</div>
+        <div style={{ fontSize:14,color:C.textMuted,lineHeight:1.7,marginBottom:28 }}>
+          Workspaces let you group clients, documents, and agent results into named sessions — so you can run batch workflows, track outcomes, and build a paper trail for compliance.
+        </div>
+        <button onClick={onCreate}
+          style={{ display:"inline-flex",alignItems:"center",gap:8,padding:"11px 24px",background:C.blue,border:"none",borderRadius:9,cursor:"pointer",fontSize:14,fontWeight:600,color:"#fff",fontFamily:"inherit" }}>
+          <Plus size={16}/>Create Your First Workspace
+        </button>
+      </div>
+
+      {/* Steps */}
+      <div style={{ display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:16,maxWidth:700,width:"100%" }}>
+        {steps.map((s,i)=>(
+          <div key={i} style={{ background:C.surface,border:`1px solid ${s.border}`,borderRadius:12,padding:20 }}>
+            <div style={{ display:"flex",alignItems:"center",gap:10,marginBottom:10 }}>
+              <div style={{ width:28,height:28,borderRadius:8,background:s.bg,border:`1px solid ${s.border}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:700,color:s.clr,flexShrink:0 }}>{s.n}</div>
+              <div style={{ fontSize:13,fontWeight:600,color:C.text }}>{s.title}</div>
+            </div>
+            <div style={{ fontSize:12,color:C.textMuted,lineHeight:1.65 }}>{s.body}</div>
           </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Main ─────────────────────────────────────────────────────────────────────
+export default function ProjectCenterView({ projects, onCreateProject, onDeleteProject, onOpenProject }) {
+  const [showModal, setShowModal] = useState(false);
+  const [search,    setSearch]    = useState("");
+
+  const filtered = projects.filter(p =>
+    !search.trim() || p.name.toLowerCase().includes(search.toLowerCase())
+  );
+
+  return (
+    <div style={{ display:"flex",flexDirection:"column",height:"100%",overflow:"hidden",background:C.bg }}>
+      <style>{`@keyframes pcDot{0%,100%{opacity:1}50%{opacity:.3}}`}</style>
+
+      {/* Header */}
+      <div style={{ padding:"16px 24px 12px",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:12,flexShrink:0,background:C.surface }}>
+        <div style={{flex:1}}>
+          <div style={{ fontSize:18,fontWeight:700,color:C.text }}>Custom Workspace</div>
+          <div style={{ fontSize:12,color:C.textDim,marginTop:2 }}>{projects.length} workspace{projects.length!==1?"s":""} · Group clients, docs, and agent runs</div>
+        </div>
+        {projects.length>0&&(
+          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search workspaces…"
+            style={{ padding:"7px 12px",background:C.surface2,border:`1px solid ${C.border}`,borderRadius:8,color:C.text,fontSize:12,fontFamily:"inherit",outline:"none",width:220 }}/>
+        )}
+        <button onClick={()=>setShowModal(true)}
+          style={{ display:"flex",alignItems:"center",gap:6,padding:"8px 16px",background:C.blue,border:"none",borderRadius:8,cursor:"pointer",fontSize:13,fontWeight:600,color:"#fff",fontFamily:"inherit" }}>
+          <Plus size={14}/>New Workspace
+        </button>
+      </div>
+
+      {/* Body */}
+      {!projects.length ? (
+        <EmptyState onCreate={()=>setShowModal(true)}/>
+      ) : (
+        <div style={{ flex:1,overflowY:"auto",padding:24 }}>
+          {!filtered.length ? (
+            <div style={{ textAlign:"center",color:C.textDim,fontSize:13,padding:"40px 0" }}>No workspaces match "{search}"</div>
+          ) : (
+            <div style={{ display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:14 }}>
+              {filtered.map(p=>(
+                <WorkspaceCard key={p.id} project={p} onOpen={onOpenProject} onDelete={onDeleteProject}/>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
-      {/* New project modal */}
-      <NewProjectModal
-        open={modalOpen}
-        onCreate={handleCreate}
-        onClose={() => setModalOpen(false)}
-      />
+      {showModal&&<NewWorkspaceModal onSave={onCreateProject} onClose={()=>setShowModal(false)}/>}
     </div>
   );
 }

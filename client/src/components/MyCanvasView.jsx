@@ -1,781 +1,547 @@
-// client/src/components/MyCanvasView.jsx (v3 — wow-factor redesign)
-// Restores: 3-card carousel, Add Card modal, New Session, session management
-// New: large hero sparkline, cashflow bars, pill badges, animated accents
+// client/src/components/MyCanvasView.jsx
+// Uses CSS custom properties for full theme support.
+// "Pin to Home" reports appear as cards in Add Card modal.
+// Hero card uses --c-hero-* vars so it reads cleanly in light mode.
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
-  ChevronLeft, ChevronRight, Plus, RefreshCw, BarChart2,
-  Users, TrendingUp, ChevronDown, Edit2, Trash2, Check,
-  X, ArrowRight, Star, AlertCircle, Zap, DollarSign,
-  UserPlus, Activity, Bell, Clock,
+  ChevronLeft, ChevronRight, ChevronDown, Plus, RefreshCw,
+  BarChart2, Users, TrendingUp, Activity, X, Star,
+  DollarSign, UserPlus, ArrowRight, AlertCircle, FileText, Trash2,
 } from "lucide-react";
+import clientsData from "../data/clients.json";
 
+const CLIENTS   = Array.isArray(clientsData) ? clientsData : [];
+const PRODUCER  = "702-1782";
+const STORE_KEY = "wma_canvas_v2";
+
+// ── CSS vars with dark fallbacks ──────────────────────────────────────────────
 const C = {
-  bg: "#0a0b0d", surface: "#0f1014", surface2: "#13151e", surface3: "#181a22",
-  border: "#1e2029", border2: "#2a2d3a",
-  text: "#eceef5", textMid: "#b0b8d0", textMuted: "#8a8fa8", textDim: "#7a7e94",
-  blue: "#7db8ff", blueBg: "#0e1e38", blueBorder: "#2a4a8a", blueDark: "#152640",
-  teal: "#2dbe8a", tealBg: "#0a2820", tealBorder: "#1a6a50",
-  amber: "#e09040", amberBg: "#221800", amberBorder: "#5a3a10",
-  purple: "#a882ff", purpleBg: "#180f30", purpleBorder: "#4a3080",
-  coral: "#f07850", coralBg: "#221008", coralBorder: "#6a3020",
+  bg:          "var(--c-bg,          #0a0b0d)",
+  surface:     "var(--c-surface,     #0f1014)",
+  surface2:    "var(--c-surface2,    #13151e)",
+  surface3:    "var(--c-surface3,    #181a22)",
+  border:      "var(--c-border,      #1e2029)",
+  border2:     "var(--c-border2,     #2a2d3a)",
+  text:        "var(--c-text,        #eceef5)",
+  textMid:     "var(--c-textMid,     #b0b8d0)",
+  textMuted:   "var(--c-textMuted,   #8a8fa8)",
+  textDim:     "var(--c-textDim,     #7a7e94)",
+  blue:        "var(--c-blue,        #7db8ff)",
+  blueBg:      "var(--c-blueBg,      #0e1e38)",
+  blueBorder:  "var(--c-blueBorder,  #2a4a8a)",
+  teal:        "var(--c-teal,        #2dbe8a)",
+  tealBg:      "var(--c-tealBg,      #0a2820)",
+  tealBorder:  "var(--c-tealBorder,  #1a6a50)",
+  amber:       "var(--c-amber,       #e09040)",
+  amberBg:     "var(--c-amberBg,     #221800)",
+  amberBorder: "var(--c-amberBorder, #5a3a10)",
+  purple:      "var(--c-purple,      #a882ff)",
+  purpleBg:    "var(--c-purpleBg,    #180f30)",
+  purpleBorder:"var(--c-purpleBorder,#4a3080)",
+  coral:       "var(--c-coral,       #f07850)",
+  coralBg:     "var(--c-coralBg,     #221008)",
+  coralBorder: "var(--c-coralBorder, #6a3020)",
+  // Hero card — separate vars so light theme can override without affecting everything else
+  heroBg:      "var(--c-hero-bg,     linear-gradient(135deg,#0a3020 0%,#0f1014 100%))",
+  heroBorder:  "var(--c-hero-border, #1a6a50)",
+  heroText:    "var(--c-hero-text,   #2dbe8a)",
+  heroSub:     "var(--c-hero-sub,    rgba(45,190,138,.65))",
+  heroBadge:   "var(--c-hero-badge,  rgba(45,190,138,.15))",
 };
 
-// ── Storage ───────────────────────────────────────────────────────────────────
-const STORAGE_KEY = "wealth_assistant_canvas_sessions";
-function loadSessions() { try { const r = localStorage.getItem(STORAGE_KEY); return r ? JSON.parse(r) : null; } catch { return null; } }
-function saveSessions(s) { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); } catch {} }
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function computeStats() {
+  const mine    = CLIENTS.filter(c => c.producerId === PRODUCER);
+  const totalAUM = mine.reduce((s,c) => s+(c.accounts||[]).reduce((a,ac)=>a+(ac.netValue||0),0), 0);
+  const managed  = mine.reduce((s,c) => s+(c.accounts||[]).filter(a=>a.managedPledged==="Managed").reduce((a,ac)=>a+(ac.netValue||0),0), 0);
+  const cash     = totalAUM - managed;
+  const clients  = mine.filter(c=>c.cp==="C").length;
+  const prospects= mine.filter(c=>c.cp==="P").length;
+  const accounts = mine.reduce((s,c)=>s+(c.accounts||[]).length,0);
+  const avgAUM   = clients>0 ? totalAUM/clients : 0;
+  return { totalAUM, managed, cash, clients, prospects, accounts, avgAUM };
+}
 
-const DEFAULT_SESSIONS = [{
-  id: "session-default", name: "Morning Briefing",
-  createdAt: new Date().toISOString(),
-  cards: ["book-of-business", "client-acquisition", "investment-insights"],
-}];
+function fmt(n, d=2) {
+  if (n>=1e9) return `$${(n/1e9).toFixed(d)}B`;
+  if (n>=1e6) return `$${(n/1e6).toFixed(1)}M`;
+  if (n>=1e3) return `$${(n/1e3).toFixed(0)}K`;
+  return `$${Math.round(n).toLocaleString()}`;
+}
 
+// ── SVG Sparkline ─────────────────────────────────────────────────────────────
+function Sparkline({ data, color, width=180, height=48 }) {
+  if (!data||data.length<2) return null;
+  const min=Math.min(...data), max=Math.max(...data), r=max-min||1;
+  const pts=data.map((v,i)=>[(i/(data.length-1))*width, height-((v-min)/r)*(height-6)-3]);
+  const line=pts.map((p,i)=>`${i===0?"M":"L"}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(" ");
+  return (
+    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} style={{overflow:"visible"}}>
+      <path d={`${line} L${width},${height} L0,${height} Z`} fill={color} fillOpacity=".12"/>
+      <path d={line} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      <circle cx={pts[pts.length-1][0]} cy={pts[pts.length-1][1]} r="3.5" fill={color} stroke="white" strokeWidth="1.5"/>
+    </svg>
+  );
+}
+
+// ── CARD CATALOG ──────────────────────────────────────────────────────────────
 const CARD_CATALOG = [
-  { id: "book-of-business",    title: "Book of Business",    icon: Users,        color: "teal",   desc: "AUM, clients, prospects & AI recommendations" },
-  { id: "client-acquisition",  title: "Client Acquisition",  icon: UserPlus,     color: "blue",   desc: "Prospect pipeline, conversion metrics, outreach" },
-  { id: "investment-insights", title: "Investment Insights",  icon: TrendingUp,   color: "amber",  desc: "Portfolio opportunities, tax loss, rebalancing" },
-  { id: "market-summary",      title: "Market Summary",       icon: Activity,     color: "purple", desc: "Indices, sector performance, market intelligence" },
-  { id: "practice-kpis",       title: "Practice KPIs",        icon: BarChart2,    color: "blue",   desc: "Revenue, retention, compliance, growth metrics" },
-  { id: "wealth-planning",     title: "Wealth Planning",      icon: Star,         color: "purple", desc: "Retirement, estate, education, tax planning" },
+  { id:"book-of-business",    title:"Book of Business",   icon:Users,       color:C.teal,   desc:"AUM, clients, prospects & AI recommendations" },
+  { id:"client-acquisition",  title:"Client Acquisition", icon:UserPlus,    color:C.blue,   desc:"Prospect pipeline and conversion metrics" },
+  { id:"investment-insights", title:"Investment Insights", icon:TrendingUp,  color:C.amber,  desc:"Tax loss, rebalancing, and ESG opportunities" },
+  { id:"market-summary",      title:"Market Summary",      icon:Activity,    color:C.purple, desc:"Indices, sector performance, market intel" },
+  { id:"practice-kpis",       title:"Practice KPIs",       icon:BarChart2,   color:C.blue,   desc:"Revenue, retention, compliance metrics" },
+  { id:"at-risk-alerts",      title:"At-Risk Alerts",      icon:AlertCircle, color:C.coral,  desc:"Clients with withdrawal or contact gaps" },
 ];
 
-const COLOR_MAP = { teal: C.teal, blue: C.blue, amber: C.amber, purple: C.purple, coral: C.coral };
-const BG_MAP    = { teal: C.tealBg, blue: C.blueBg, amber: C.amberBg, purple: C.purpleBg, coral: C.coralBg };
-const BR_MAP    = { teal: C.tealBorder, blue: C.blueBorder, amber: C.amberBorder, purple: C.purpleBorder, coral: C.coralBorder };
+const DEFAULT_SESSION = { id:"session-default", name:"Morning Briefing", cards:["book-of-business","client-acquisition","investment-insights"] };
 
-// ── Hero Sparkline (large, glowing) ──────────────────────────────────────────
-function HeroSparkline({ data, color, width = 220, height = 60 }) {
-  const min = Math.min(...data), max = Math.max(...data);
-  const range = max - min || 1;
-  const pts = data.map((v, i) => {
-    const x = (i / (data.length - 1)) * width;
-    const y = height - ((v - min) / range) * (height - 8) - 4;
-    return `${x.toFixed(1)},${y.toFixed(1)}`;
-  });
-  const path = `M ${pts.join(" L ")}`;
-  const area = `M 0,${height} L ${pts.join(" L ")} L ${width},${height} Z`;
-  const [lx, ly] = pts[pts.length - 1].split(",");
-  const uid = color.replace(/[^a-z0-9]/gi, "");
-  return (
-    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} style={{ overflow: "visible" }}>
-      <defs>
-        <linearGradient id={`hg-${uid}`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity="0.35" />
-          <stop offset="100%" stopColor={color} stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      <path d={area} fill={`url(#hg-${uid})`} />
-      <path d={path} fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx={lx} cy={ly} r="5" fill={color} opacity="0.9" />
-      <circle cx={lx} cy={ly} r="9" fill={color} opacity="0.15" />
-    </svg>
-  );
-}
+// ── Book of Business card ─────────────────────────────────────────────────────
+function BookOfBusinessCard({ stats }) {
+  const mPct  = stats.totalAUM>0 ? (stats.managed/stats.totalAUM*100) : 60.4;
+  const cPct  = 100 - mPct;
+  const idle  = stats.cash * 0.77;
+  const trend = [4.8,4.95,5.1,5.05,5.22,5.38,5.42,5.35,5.41,5.48,5.49,5.53];
+  const cf    = [{v:240,l:"Jun"},{v:-80,l:"Jul"},{v:320,l:"Aug"},{v:-120,l:"Sep"},{v:410,l:"Oct"},{v:280,l:"Nov"},{v:520,l:"Dec"}];
 
-// ── Cash Flow Bar Chart ───────────────────────────────────────────────────────
-function CashFlowBars({ data, posColor, negColor, width = 200, height = 60 }) {
-  const maxAbs = Math.max(...data.map(d => Math.abs(d.value)));
-  const barW = (width - (data.length - 1) * 3) / data.length;
-  const midY = height / 2;
   return (
-    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
-      {data.map((d, i) => {
-        const h = Math.max(3, (Math.abs(d.value) / maxAbs) * (midY - 4));
-        const x = i * (barW + 3);
-        const isPos = d.value >= 0;
-        const y = isPos ? midY - h : midY;
-        return <rect key={i} x={x} y={y} width={barW} height={h} rx="2" fill={isPos ? posColor : negColor} opacity="0.85" />;
-      })}
-      <line x1="0" y1={midY} x2={width} y2={midY} stroke={C.border2} strokeWidth="0.5" />
-    </svg>
-  );
-}
+    <div style={{ padding:20, height:"100%", overflowY:"auto", background:C.bg }}>
 
-// ── Mini Sparkline ────────────────────────────────────────────────────────────
-function MiniSparkline({ data, color, width = 80, height = 28 }) {
-  const min = Math.min(...data), max = Math.max(...data);
-  const range = max - min || 1;
-  const pts = data.map((v, i) => {
-    const x = (i / (data.length - 1)) * width;
-    const y = height - ((v - min) / range) * (height - 4) - 2;
-    return `${x.toFixed(1)},${y.toFixed(1)}`;
-  });
-  return (
-    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
-      <path d={`M ${pts.join(" L ")}`} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-// ── Stat Tile ─────────────────────────────────────────────────────────────────
-function StatTile({ label, value, sub, color, onClick }) {
-  const [hov, setHov] = useState(false);
-  return (
-    <div onClick={onClick}
-      onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
-      style={{ background: hov && onClick ? C.surface3 : C.surface2, border: `1px solid ${hov && onClick ? C.border2 : C.border}`, borderRadius: 9, padding: "11px 13px", cursor: onClick ? "pointer" : "default", transition: "all 0.15s", flex: 1 }}>
-      <div style={{ fontSize: 10, color: C.textDim, marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.06em" }}>{label}</div>
-      <div style={{ fontSize: 19, fontWeight: 700, color: color || C.text, lineHeight: 1.2 }}>{value}</div>
-      {sub && <div style={{ fontSize: 11, color: C.textMuted, marginTop: 3 }}>{sub}</div>}
-    </div>
-  );
-}
-
-// ── Recommendation Row ────────────────────────────────────────────────────────
-function RecRow({ icon: Icon, label, sub, color, badge, onClick }) {
-  const [hov, setHov] = useState(false);
-  return (
-    <div onClick={onClick} onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
-      style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", borderRadius: 8, background: hov ? C.surface3 : "transparent", border: `1px solid ${hov ? C.border2 : "transparent"}`, cursor: "pointer", transition: "all 0.15s" }}>
-      <div style={{ width: 32, height: 32, borderRadius: 8, background: `${color}18`, border: `1px solid ${color}35`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-        <Icon size={14} color={color} />
-      </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 13, color: C.textMid, fontWeight: 500, display: "flex", alignItems: "center", gap: 6 }}>
-          {label}
-          {badge && <span style={{ fontSize: 9, fontWeight: 700, padding: "1px 6px", borderRadius: 3, background: `${color}22`, color: color, border: `1px solid ${color}44`, flexShrink: 0 }}>{badge}</span>}
+      {/* ── Hero AUM — uses CSS hero vars, theme-aware */}
+      <div style={{ background:C.heroBg, border:`1px solid ${C.heroBorder}`, borderRadius:14, padding:"20px 24px", marginBottom:20, position:"relative", overflow:"hidden" }}>
+        <div style={{ position:"absolute", top:0, right:0, opacity:.3 }}>
+          <Sparkline data={trend} color={C.heroText} width={200} height={80}/>
         </div>
-        {sub && <div style={{ fontSize: 11, color: C.textDim, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{sub}</div>}
+        <div style={{ fontSize:11, color:C.heroText, fontWeight:600, letterSpacing:".06em", textTransform:"uppercase", marginBottom:6 }}>TOTAL BOOK AUM</div>
+        <div style={{ fontSize:38, fontWeight:700, color:C.heroText, fontFamily:"monospace", letterSpacing:"-.02em", marginBottom:8 }}>{fmt(stats.totalAUM)}</div>
+        <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+          <span style={{ fontSize:11, background:C.heroBadge, color:C.heroText, border:`1px solid ${C.heroBorder}`, borderRadius:20, padding:"2px 10px", fontWeight:600 }}>▲ 8.3% YTD</span>
+          <span style={{ fontSize:11, color:C.heroSub }}>James Miller · {PRODUCER}</span>
+        </div>
       </div>
-      <ArrowRight size={13} color={hov ? color : C.textDim} style={{ flexShrink: 0, transition: "color 0.15s" }} />
-    </div>
-  );
-}
 
-function SL({ label }) {
-  return <div style={{ fontSize: 10, fontWeight: 700, color: C.textDim, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 8, marginTop: 2 }}>{label}</div>;
-}
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// CARD CONTENT RENDERERS
-// ═══════════════════════════════════════════════════════════════════════════════
-
-function BookOfBusinessCard({ onNavigate }) {
-  const spark = [5.1, 5.25, 5.18, 5.32, 5.28, 5.41, 5.38, 5.47, 5.51, 5.53];
-  const cashflow = [
-    { value: 120 }, { value: -30 }, { value: 95 }, { value: 200 },
-    { value: -15 }, { value: 310 }, { value: 180 }, { value: -40 }, { value: 250 },
-  ];
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 14, height: "100%" }}>
-      {/* Hero */}
-      <div style={{ background: `linear-gradient(135deg, ${C.tealBg} 0%, #061a10 100%)`, border: `1px solid ${C.tealBorder}`, borderRadius: 12, padding: "18px 20px", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16 }}>
-        <div>
-          <div style={{ fontSize: 10, color: C.teal, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6, opacity: 0.8 }}>Total Book AUM</div>
-          <div style={{ fontSize: 42, fontWeight: 700, color: C.teal, lineHeight: 1, letterSpacing: "-0.02em" }}>$5.53B</div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
-            <span style={{ fontSize: 12, fontWeight: 700, padding: "2px 8px", borderRadius: 4, background: "#0a3a20", color: C.teal, border: `1px solid ${C.tealBorder}` }}>▲ 8.3% YTD</span>
-            <span style={{ fontSize: 11, color: C.textDim }}>James Miller · 702-1782</span>
+      {/* Metrics */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:12, marginBottom:20 }}>
+        {[
+          { label:"CLIENTS",   value:stats.clients,  sub:`${Math.round(stats.clients*.8)} active`,         clr:C.blue   },
+          { label:"PROSPECTS", value:stats.prospects, sub:"23 high priority",                               clr:C.purple },
+          { label:"ACCOUNTS",  value:stats.accounts.toLocaleString(), sub:`${Math.round(stats.accounts*.61)} managed`, clr:C.teal   },
+          { label:"AVG AUM",   value:fmt(stats.avgAUM,1), sub:"per client",                                 clr:C.amber  },
+        ].map((m,i)=>(
+          <div key={i} style={{ background:C.surface2, border:`1px solid ${C.border}`, borderRadius:10, padding:"12px 14px" }}>
+            <div style={{ fontSize:10, color:C.textDim, fontWeight:700, letterSpacing:".06em", textTransform:"uppercase", marginBottom:6 }}>{m.label}</div>
+            <div style={{ fontSize:20, fontWeight:700, color:m.clr, fontFamily:"monospace" }}>{m.value}</div>
+            <div style={{ fontSize:11, color:C.textMuted, marginTop:3 }}>{m.sub}</div>
           </div>
-        </div>
-        <div style={{ textAlign: "right" }}>
-          <HeroSparkline data={spark} color={C.teal} width={180} height={56} />
-          <div style={{ fontSize: 10, color: C.textDim, marginTop: 4 }}>12-month AUM trend ($B)</div>
-        </div>
+        ))}
       </div>
 
-      {/* Stats grid */}
-      <div>
-        <SL label="Book Overview" />
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8 }}>
-          <StatTile label="Clients" value="352" sub="280 active" color={C.blue} />
-          <StatTile label="Prospects" value="72" sub="23 high priority" color={C.purple} />
-          <StatTile label="Accounts" value="2,622" sub="1,585 managed" color={C.teal} />
-          <StatTile label="Avg AUM" value="$15.7M" sub="per client" color={C.amber} />
-        </div>
-      </div>
-
-      {/* AUM breakdown + cashflow side by side */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+      {/* AUM Breakdown + Cash Flow */}
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16, marginBottom:20 }}>
         <div>
-          <SL label="AUM Breakdown" />
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {[["Managed", "$3.34B", "60.4%", C.teal, C.tealBg, C.tealBorder],
-              ["Cash",    "$2.19B", "39.6%", C.blue, C.blueBg, C.blueBorder],
-              ["Idle",    "$1.69B", "CMA",   C.amber, C.amberBg, C.amberBorder]].map(([label, val, sub, color, bg, border]) => (
-              <div key={label} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", background: bg, border: `1px solid ${border}`, borderRadius: 8 }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 10, color, textTransform: "uppercase", letterSpacing: "0.05em", opacity: 0.8 }}>{label}</div>
-                  <div style={{ fontSize: 17, fontWeight: 700, color }}>{val}</div>
+          <div style={{ fontSize:11, fontWeight:700, color:C.textDim, letterSpacing:".06em", textTransform:"uppercase", marginBottom:10 }}>AUM BREAKDOWN</div>
+          {[
+            { label:"MANAGED",  value:fmt(stats.managed), pct:mPct.toFixed(1),                          clr:C.teal  },
+            { label:"CASH",     value:fmt(stats.cash),    pct:cPct.toFixed(1),                           clr:C.blue  },
+            { label:"IDLE CMA", value:fmt(idle),          pct:(idle/stats.totalAUM*100).toFixed(1),      clr:C.amber },
+          ].map((r,i)=>(
+            <div key={i} style={{ marginBottom:8 }}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:4 }}>
+                <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                  <span style={{ width:8, height:8, borderRadius:"50%", background:r.clr, display:"inline-block" }}/>
+                  <span style={{ fontSize:11, color:C.textMuted }}>{r.label}</span>
                 </div>
-                <span style={{ fontSize: 11, color, opacity: 0.6 }}>{sub}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-        <div>
-          <SL label="Net Cash Flow (9mo)" />
-          <div style={{ background: C.surface2, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 12px", height: "calc(100% - 24px)", display: "flex", flexDirection: "column", justifyContent: "center", gap: 8 }}>
-            <CashFlowBars data={cashflow} posColor={C.teal} negColor={C.coral} width={160} height={56} />
-            <div style={{ display: "flex", gap: 12, fontSize: 10, color: C.textDim }}>
-              <span style={{ color: C.teal }}>▮ Inflows</span>
-              <span style={{ color: C.coral }}>▮ Outflows</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* AI Recs */}
-      <div style={{ flex: 1 }}>
-        <SL label="AI Recommendations" />
-        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          <RecRow icon={AlertCircle} color={C.coral} badge="Urgent" label="14 at-risk clients flagged" sub="Large withdrawals or long contact gaps detected" onClick={() => onNavigate("sub-ag-02", "ag-02", "My Clients & Prospects")} />
-          <RecRow icon={DollarSign} color={C.amber} badge="Opportunity" label="$1.69B idle cash opportunity" sub="798 CMA accounts eligible for managed transition" onClick={() => onNavigate("sub-ag-01", "ag-01", "Portfolio Financials Intelligence")} />
-          <RecRow icon={Users} color={C.blue} badge="Action" label="8 upcoming annual reviews" sub="2 clients have incomplete fact sheets" onClick={() => onNavigate("sub-ag-02", "ag-02", "My Clients & Prospects")} />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ClientAcquisitionCard({ onNavigate }) {
-  const spark = [89, 95, 92, 101, 98, 108, 112, 118, 122, 136.9];
-  const pipeline = [
-    { value: 23 }, { value: 23 }, { value: 31 }, { value: 31 },
-    { value: 18 }, { value: 18 }, { value: 12 }, { value: 12 },
-  ];
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 14, height: "100%" }}>
-      <div style={{ background: `linear-gradient(135deg, ${C.blueBg} 0%, #050d1e 100%)`, border: `1px solid ${C.blueBorder}`, borderRadius: 12, padding: "18px 20px", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16 }}>
-        <div>
-          <div style={{ fontSize: 10, color: C.blue, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6, opacity: 0.8 }}>Net New Money Opportunity</div>
-          <div style={{ fontSize: 42, fontWeight: 700, color: C.blue, lineHeight: 1, letterSpacing: "-0.02em" }}>$136.9M</div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
-            <span style={{ fontSize: 12, fontWeight: 700, padding: "2px 8px", borderRadius: 4, background: "#050d1e", color: C.blue, border: `1px solid ${C.blueBorder}` }}>72 prospects</span>
-            <span style={{ fontSize: 11, color: C.textDim }}>Estimated potential assets</span>
-          </div>
-        </div>
-        <div style={{ textAlign: "right" }}>
-          <HeroSparkline data={spark} color={C.blue} width={180} height={56} />
-          <div style={{ fontSize: 10, color: C.textDim, marginTop: 4 }}>Pipeline value trend ($M)</div>
-        </div>
-      </div>
-
-      <div>
-        <SL label="Prospect Pipeline" />
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
-          <StatTile label="High Potential" value="23" sub="Ready to convert" color={C.blue} />
-          <StatTile label="Nurturing" value="31" sub="In progress" color={C.teal} />
-          <StatTile label="Initial Outreach" value="18" sub="New leads" color={C.purple} />
-        </div>
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-        <div>
-          <SL label="Conversion Metrics" />
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {[["Avg Close Time", "47 days", "↓ 6d vs last qtr", C.teal, C.tealBg, C.tealBorder],
-              ["Conversion Rate", "31%", "Industry avg: 24%", C.blue, C.blueBg, C.blueBorder],
-              ["Referral Rate", "68%", "Of new prospects", C.amber, C.amberBg, C.amberBorder]].map(([label, val, sub, color, bg, border]) => (
-              <div key={label} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", background: bg, border: `1px solid ${border}`, borderRadius: 8 }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 10, color, textTransform: "uppercase", letterSpacing: "0.05em", opacity: 0.8 }}>{label}</div>
-                  <div style={{ fontSize: 17, fontWeight: 700, color }}>{val}</div>
+                <div style={{ display:"flex", gap:8 }}>
+                  <span style={{ fontSize:12, fontWeight:600, color:r.clr, fontFamily:"monospace" }}>{r.value}</span>
+                  <span style={{ fontSize:11, color:C.textDim }}>{r.pct}%</span>
                 </div>
-                <span style={{ fontSize: 10, color, opacity: 0.6 }}>{sub}</span>
               </div>
-            ))}
-          </div>
-        </div>
-        <div>
-          <SL label="Stage Breakdown" />
-          <div style={{ background: C.surface2, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 12px", height: "calc(100% - 24px)", display: "flex", flexDirection: "column", justifyContent: "center", gap: 8 }}>
-            {[["High", 23, C.blue], ["Nurture", 31, C.teal], ["Initial", 18, C.purple], ["Research", 12, C.amber]].map(([label, val, color]) => (
-              <div key={label} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontSize: 10, color: C.textDim, width: 48 }}>{label}</span>
-                <div style={{ flex: 1, height: 5, borderRadius: 3, background: C.border, overflow: "hidden" }}>
-                  <div style={{ width: `${(val / 31) * 100}%`, height: "100%", background: color, borderRadius: 3 }} />
-                </div>
-                <span style={{ fontSize: 10, color, fontWeight: 600, width: 20, textAlign: "right" }}>{val}</span>
+              <div style={{ height:6, background:C.surface2, borderRadius:3, overflow:"hidden" }}>
+                <div style={{ width:`${r.pct}%`, height:"100%", background:r.clr, borderRadius:3, opacity:.7 }}/>
               </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <div style={{ flex: 1 }}>
-        <SL label="AI Recommendations" />
-        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          <RecRow icon={Star} color={C.blue} badge="Ready" label="23 high-potential prospects ready" sub="Personalized outreach drafts available" onClick={() => onNavigate("sub-502", "ag-05", "Client Acquisition Agent")} />
-          <RecRow icon={UserPlus} color={C.teal} badge="Action" label="Referral opportunities identified" sub="12 clients with strong referral signals this month" onClick={() => onNavigate("sub-503", "ag-05", "Client Acquisition Agent")} />
-          <RecRow icon={AlertCircle} color={C.amber} badge="Timing" label="Life event triggers found" sub="8 prospects with recent life changes — ideal timing" onClick={() => onNavigate("sub-501", "ag-05", "Client Acquisition Agent")} />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function InvestmentInsightsCard({ onNavigate }) {
-  const spark = [2.1, 2.25, 2.2, 2.38, 2.33, 2.48, 2.55, 2.6, 2.64, 2.67];
-  const harvest = [
-    { value: 12 }, { value: 8 }, { value: 15 }, { value: -5 },
-    { value: 19 }, { value: 22 }, { value: -8 }, { value: 28 }, { value: 74 },
-  ];
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 14, height: "100%" }}>
-      <div style={{ background: `linear-gradient(135deg, ${C.amberBg} 0%, #120d00 100%)`, border: `1px solid ${C.amberBorder}`, borderRadius: 12, padding: "18px 20px", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16 }}>
-        <div>
-          <div style={{ fontSize: 10, color: C.amber, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6, opacity: 0.8 }}>Revenue Opportunity</div>
-          <div style={{ fontSize: 42, fontWeight: 700, color: C.amber, lineHeight: 1, letterSpacing: "-0.02em" }}>$2.67M</div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
-            <span style={{ fontSize: 12, fontWeight: 700, padding: "2px 8px", borderRadius: 4, background: "#120d00", color: C.amber, border: `1px solid ${C.amberBorder}` }}>AI-identified</span>
-            <span style={{ fontSize: 11, color: C.textDim }}>Potential annual revenue impact</span>
-          </div>
-        </div>
-        <div style={{ textAlign: "right" }}>
-          <HeroSparkline data={spark} color={C.amber} width={180} height={56} />
-          <div style={{ fontSize: 10, color: C.textDim, marginTop: 4 }}>Opportunity trend ($M)</div>
-        </div>
-      </div>
-
-      <div>
-        <SL label="Portfolio Overview" />
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8 }}>
-          <StatTile label="Rebalance" value="494" sub="accounts" color={C.amber} />
-          <StatTile label="Tax Loss" value="193" sub="candidates" color={C.coral} />
-          <StatTile label="High Cash" value="798" sub="CMA accounts" color={C.blue} />
-          <StatTile label="Underallocated" value="147" sub="portfolios" color={C.purple} />
-        </div>
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-        <div>
-          <SL label="Strategy Focus" />
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {[["Brokerage Shift", "$892M", "eligible AUM", C.teal, C.tealBg, C.tealBorder],
-              ["Tax Loss Pool", "$74M", "harvestable", C.coral, C.coralBg, C.coralBorder],
-              ["ESG Eligible", "$1.2B", "screened AUM", C.teal, C.tealBg, C.tealBorder]].map(([label, val, sub, color, bg, border]) => (
-              <div key={label} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", background: bg, border: `1px solid ${border}`, borderRadius: 8 }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 10, color, textTransform: "uppercase", letterSpacing: "0.05em", opacity: 0.8 }}>{label}</div>
-                  <div style={{ fontSize: 17, fontWeight: 700, color }}>{val}</div>
-                </div>
-                <span style={{ fontSize: 10, color, opacity: 0.6 }}>{sub}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-        <div>
-          <SL label="Harvest Opportunities ($M)" />
-          <div style={{ background: C.surface2, border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px 12px", height: "calc(100% - 24px)", display: "flex", flexDirection: "column", justifyContent: "center", gap: 8 }}>
-            <CashFlowBars data={harvest} posColor={C.amber} negColor={C.coral} width={160} height={56} />
-            <div style={{ display: "flex", gap: 12, fontSize: 10, color: C.textDim }}>
-              <span style={{ color: C.amber }}>▮ Gains</span>
-              <span style={{ color: C.coral }}>▮ Losses</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div style={{ flex: 1 }}>
-        <SL label="AI Recommendations" />
-        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          <RecRow icon={TrendingUp} color={C.amber} badge="494 accts" label="Rebalance portfolios for growth" sub="Accounts showing drift beyond tolerance bands" onClick={() => onNavigate("sub-301", "ag-03", "Investment Agent")} />
-          <RecRow icon={DollarSign} color={C.coral} badge="$74M" label="Tax loss harvesting available" sub="193 accounts with harvestable losses before year-end" onClick={() => onNavigate("prompts-101", "ag-01", "Portfolio Financials Intelligence")} />
-          <RecRow icon={Activity} color={C.blue} badge="$1.69B" label="Transition to managed solutions" sub="Cash accounts eligible for advisory shift" onClick={() => onNavigate("sub-302", "ag-03", "Investment Agent")} />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function MarketSummaryCard({ onNavigate }) {
-  const spark = [4420, 4380, 4450, 4510, 4490, 4530, 4580, 4560, 4610, 4625];
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 14, height: "100%" }}>
-      <div style={{ background: `linear-gradient(135deg, ${C.purpleBg} 0%, #0a0520 100%)`, border: `1px solid ${C.purpleBorder}`, borderRadius: 12, padding: "18px 20px", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16 }}>
-        <div>
-          <div style={{ fontSize: 10, color: C.purple, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6, opacity: 0.8 }}>S&P 500</div>
-          <div style={{ fontSize: 42, fontWeight: 700, color: C.purple, lineHeight: 1, letterSpacing: "-0.02em" }}>4,625</div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
-            <span style={{ fontSize: 12, fontWeight: 700, padding: "2px 8px", borderRadius: 4, background: "#0a0520", color: C.teal, border: `1px solid ${C.tealBorder}` }}>▲ +1.3% today</span>
-            <span style={{ fontSize: 11, color: C.textDim }}>Markets open</span>
-          </div>
-        </div>
-        <div style={{ textAlign: "right" }}>
-          <HeroSparkline data={spark} color={C.purple} width={180} height={56} />
-          <div style={{ fontSize: 10, color: C.textDim, marginTop: 4 }}>10-day S&P 500 trend</div>
-        </div>
-      </div>
-      <div>
-        <SL label="Key Indices" />
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8 }}>
-          <StatTile label="Dow Jones" value="38,420" sub="▲ +0.9%" color={C.teal} />
-          <StatTile label="NASDAQ" value="16,284" sub="▲ +1.8%" color={C.teal} />
-          <StatTile label="10Y Treasury" value="4.42%" sub="▼ -3bps" color={C.amber} />
-          <StatTile label="VIX" value="14.2" sub="Low volatility" color={C.blue} />
-        </div>
-      </div>
-      <div>
-        <SL label="Sector Performance (Today)" />
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
-          <StatTile label="Technology" value="+2.1%" color={C.teal} />
-          <StatTile label="Financials" value="+1.4%" color={C.teal} />
-          <StatTile label="Energy" value="-0.8%" color={C.coral} />
-        </div>
-      </div>
-      <div style={{ flex: 1 }}>
-        <SL label="AI Recommendations" />
-        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          <RecRow icon={TrendingUp} color={C.teal} badge="Overweight" label="Tech sector momentum — review allocations" sub="Client portfolios may be underweight vs benchmark" onClick={() => onNavigate("sub-302", "ag-03", "Investment Agent")} />
-          <RecRow icon={AlertCircle} color={C.amber} badge="Rate risk" label="Rate environment shift — fixed income review" sub="10Y yield movement impacts bond-heavy portfolios" onClick={() => onNavigate("sub-803", "ag-08", "Market Data Intelligence")} />
-          <RecRow icon={Activity} color={C.purple} badge="34 stocks" label="Earnings season starting — alerts set" sub="34 client holdings reporting this week" onClick={() => onNavigate("sub-804", "ag-08", "Market Data Intelligence")} />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function PracticeKPIsCard({ onNavigate }) {
-  const growth = [285, 298, 310, 325, 338, 352];
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 14, height: "100%" }}>
-      <div style={{ background: `linear-gradient(135deg, #0a1420 0%, ${C.blueBg} 100%)`, border: `1px solid ${C.blueBorder}`, borderRadius: 12, padding: "18px 20px", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16 }}>
-        <div>
-          <div style={{ fontSize: 10, color: C.blue, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6, opacity: 0.8 }}>Annual Revenue Run Rate</div>
-          <div style={{ fontSize: 42, fontWeight: 700, color: C.blue, lineHeight: 1, letterSpacing: "-0.02em" }}>$8.84M</div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
-            <span style={{ fontSize: 12, fontWeight: 700, padding: "2px 8px", borderRadius: 4, background: C.blueBg, color: C.teal, border: `1px solid ${C.tealBorder}` }}>▲ 12.4% YoY</span>
-            <span style={{ fontSize: 11, color: C.textDim }}>Fee-based revenue</span>
-          </div>
-        </div>
-        <div style={{ textAlign: "right" }}>
-          <HeroSparkline data={growth} color={C.blue} width={180} height={56} />
-          <div style={{ fontSize: 10, color: C.textDim, marginTop: 4 }}>Client count growth (6mo)</div>
-        </div>
-      </div>
-      <div>
-        <SL label="Practice Health" />
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8 }}>
-          <StatTile label="Retention" value="97.2%" sub="↑ from 96.1%" color={C.teal} />
-          <StatTile label="NPS Score" value="72" sub="Excellent" color={C.blue} />
-          <StatTile label="New Clients" value="+23" sub="YTD" color={C.teal} />
-          <StatTile label="AUM Growth" value="+$480M" sub="YTD net new" color={C.amber} />
-        </div>
-      </div>
-      <div>
-        <SL label="Compliance Status" />
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
-          <StatTile label="Reviews Due" value="8" sub="Next 30 days" color={C.amber} />
-          <StatTile label="Disclosures" value="100%" sub="All current" color={C.teal} />
-          <StatTile label="Suitability" value="2 pending" sub="Needs review" color={C.coral} onClick={() => onNavigate("sub-903", "ag-09", "My Practice")} />
-        </div>
-      </div>
-      <div style={{ flex: 1 }}>
-        <SL label="AI Recommendations" />
-        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          <RecRow icon={AlertCircle} color={C.amber} badge="8 due" label="Annual reviews due this month" sub="2 clients have incomplete suitability profiles" onClick={() => onNavigate("sub-903", "ag-09", "My Practice")} />
-          <RecRow icon={DollarSign} color={C.blue} badge="Q2 ready" label="Revenue dashboard — Q2 summary ready" sub="Fee income up 12.4% — full breakdown available" onClick={() => onNavigate("sub-901", "ag-09", "My Practice")} />
-          <RecRow icon={TrendingUp} color={C.teal} badge="On track" label="Practice growth on target" sub="352 clients · $5.53B AUM · 97.2% retention" onClick={() => onNavigate("sub-902", "ag-09", "My Practice")} />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function WealthPlanningCard({ onNavigate }) {
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 14, height: "100%" }}>
-      <div style={{ background: `linear-gradient(135deg, ${C.purpleBg} 0%, #080415 100%)`, border: `1px solid ${C.purpleBorder}`, borderRadius: 12, padding: "18px 20px", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16 }}>
-        <div>
-          <div style={{ fontSize: 10, color: C.purple, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6, opacity: 0.8 }}>Planning Opportunities</div>
-          <div style={{ fontSize: 42, fontWeight: 700, color: C.purple, lineHeight: 1, letterSpacing: "-0.02em" }}>47</div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
-            <span style={{ fontSize: 12, fontWeight: 700, padding: "2px 8px", borderRadius: 4, background: "#080415", color: C.purple, border: `1px solid ${C.purpleBorder}` }}>Clients needing review</span>
-            <span style={{ fontSize: 11, color: C.textDim }}>This quarter</span>
-          </div>
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 7, paddingTop: 4 }}>
-          {[["Retirement", 18, C.purple], ["Estate", 12, C.blue], ["Education", 9, C.teal], ["Tax", 8, C.amber]].map(([label, val, color]) => (
-            <div key={label} style={{ display: "flex", alignItems: "center", gap: 8, width: 160 }}>
-              <span style={{ fontSize: 10, color: C.textDim, width: 58 }}>{label}</span>
-              <div style={{ flex: 1, height: 5, borderRadius: 3, background: C.border, overflow: "hidden" }}>
-                <div style={{ width: `${(val / 18) * 100}%`, height: "100%", background: color, borderRadius: 3 }} />
-              </div>
-              <span style={{ fontSize: 10, color, fontWeight: 600, width: 18, textAlign: "right" }}>{val}</span>
             </div>
           ))}
         </div>
+        <div>
+          <div style={{ fontSize:11, fontWeight:700, color:C.textDim, letterSpacing:".06em", textTransform:"uppercase", marginBottom:10 }}>NET CASH FLOW (12MO)</div>
+          <svg width="100%" height="80" viewBox="0 0 240 80">
+            {cf.map((d,i)=>{
+              const h=Math.abs(d.v)/520*60, x=i*34+4, pos=d.v>=0;
+              return <g key={i}><rect x={x} y={pos?40-h:40} width={26} height={h} rx="2" fill={pos?"#2dbe8a":"#e06030"} fillOpacity=".8"/><text x={x+13} y={78} textAnchor="middle" fontSize="8" fill={C.textDim}>{d.l}</text></g>;
+            })}
+            <line x1="0" y1="40" x2="240" y2="40" stroke={C.border} strokeWidth="1" strokeDasharray="2,3"/>
+          </svg>
+        </div>
       </div>
+
+      {/* AI Recommendations */}
       <div>
-        <SL label="Planning Categories" />
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8 }}>
-          <StatTile label="Retirement" value="18" sub="Monte Carlo due" color={C.purple} />
-          <StatTile label="Estate" value="12" sub="Beneficiary gaps" color={C.blue} />
-          <StatTile label="Education" value="9" sub="529 reviews" color={C.teal} />
-          <StatTile label="Tax" value="8" sub="Roth conversions" color={C.amber} />
-        </div>
-      </div>
-      <div>
-        <SL label="Priority Clients" />
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
-          <StatTile label="RMD Due" value="23" sub="clients age 73+" color={C.coral} />
-          <StatTile label="Life Events" value="11" sub="New triggers" color={C.purple} />
-          <StatTile label="Plan Review" value="6" sub="Overdue 90+ days" color={C.amber} />
-        </div>
-      </div>
-      <div style={{ flex: 1 }}>
-        <SL label="AI Recommendations" />
-        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          <RecRow icon={AlertCircle} color={C.coral} badge="23 clients" label="RMDs this year" sub="Required minimum distributions need to be processed" onClick={() => onNavigate("sub-401", "ag-04", "Wealth Planning Agent")} />
-          <RecRow icon={TrendingUp} color={C.amber} badge="Window open" label="Roth conversion opportunity" sub="8 clients in lower bracket — optimal timing now" onClick={() => onNavigate("sub-404", "ag-04", "Wealth Planning Agent")} />
-          <RecRow icon={Star} color={C.purple} badge="12 clients" label="Estate plan gaps identified" sub="Outdated beneficiaries or missing trust structures" onClick={() => onNavigate("sub-402", "ag-04", "Wealth Planning Agent")} />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function CardContent({ cardId, onNavigate }) {
-  switch (cardId) {
-    case "book-of-business":    return <BookOfBusinessCard onNavigate={onNavigate} />;
-    case "client-acquisition":  return <ClientAcquisitionCard onNavigate={onNavigate} />;
-    case "investment-insights": return <InvestmentInsightsCard onNavigate={onNavigate} />;
-    case "market-summary":      return <MarketSummaryCard onNavigate={onNavigate} />;
-    case "practice-kpis":       return <PracticeKPIsCard onNavigate={onNavigate} />;
-    case "wealth-planning":     return <WealthPlanningCard onNavigate={onNavigate} />;
-    default: return <div style={{ color: C.textDim, padding: 20 }}>Card not found</div>;
-  }
-}
-
-// ── Add Card Modal ─────────────────────────────────────────────────────────────
-function AddCardModal({ currentCards, onAdd, onClose }) {
-  const available = CARD_CATALOG.filter(c => !currentCards.includes(c.id));
-  return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <div style={{ background: C.surface, border: `1px solid ${C.border2}`, borderRadius: 14, width: 480, maxHeight: 520, display: "flex", flexDirection: "column", boxShadow: "0 24px 60px rgba(0,0,0,0.7)" }}>
-        <div style={{ padding: "18px 20px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div style={{ fontSize: 15, fontWeight: 700, color: C.text }}>Add Card to Canvas</div>
-          <button onClick={onClose} style={{ background: "none", border: "none", color: C.textMuted, cursor: "pointer", display: "flex" }}><X size={16} /></button>
-        </div>
-        <div style={{ flex: 1, overflowY: "auto", padding: 16, display: "flex", flexDirection: "column", gap: 8 }}>
-          {available.length === 0 ? (
-            <div style={{ padding: "24px 0", textAlign: "center", color: C.textDim, fontSize: 13 }}>All available cards are already on your canvas.</div>
-          ) : available.map(card => {
-            const Icon = card.icon;
-            const color = COLOR_MAP[card.color];
-            const bg = BG_MAP[card.color];
-            const border = BR_MAP[card.color];
-            const [hov, setHov] = useState(false);
-            return (
-              <div key={card.id}
-                onClick={() => { onAdd(card.id); onClose(); }}
-                onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
-                style={{ display: "flex", alignItems: "center", gap: 14, padding: "13px 16px", borderRadius: 10, border: `1px solid ${hov ? border : C.border}`, background: hov ? bg : C.surface2, cursor: "pointer", transition: "all 0.15s" }}>
-                <div style={{ width: 38, height: 38, borderRadius: 9, background: bg, border: `1px solid ${border}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                  <Icon size={18} color={color} />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: hov ? color : C.text, marginBottom: 3 }}>{card.title}</div>
-                  <div style={{ fontSize: 12, color: C.textDim }}>{card.desc}</div>
-                </div>
-                <Plus size={16} color={hov ? color : C.textDim} />
+        <div style={{ fontSize:11, fontWeight:700, color:C.textDim, letterSpacing:".06em", textTransform:"uppercase", marginBottom:10 }}>AI RECOMMENDATIONS</div>
+        {[
+          { icon:"⚠", badge:"Urgent",      clr:C.coral,  bg:C.coralBg,  text:"14 at-risk clients flagged",       sub:"Large withdrawals or contact gaps detected" },
+          { icon:"$", badge:"Opportunity", clr:C.amber,  bg:C.amberBg,  text:`${fmt(idle)} idle cash opportunity`,sub:`${Math.round(stats.accounts*.3)} CMA accounts eligible for managed transition` },
+          { icon:"📅",badge:"Action",      clr:C.blue,   bg:C.blueBg,   text:"8 upcoming annual reviews",        sub:"2 clients have incomplete fact sheets" },
+        ].map((r,i)=>(
+          <div key={i} style={{ display:"flex", alignItems:"center", gap:12, padding:"12px 0", borderBottom:`1px solid ${C.border}`, cursor:"pointer" }}>
+            <div style={{ width:32, height:32, borderRadius:"50%", background:r.bg, display:"flex", alignItems:"center", justifyContent:"center", fontSize:14, flexShrink:0 }}>{r.icon}</div>
+            <div style={{ flex:1 }}>
+              <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:2 }}>
+                <span style={{ fontSize:13, fontWeight:600, color:C.text }}>{r.text}</span>
+                <span style={{ fontSize:9, padding:"1px 7px", borderRadius:20, background:r.bg, color:r.clr, fontWeight:700 }}>{r.badge}</span>
               </div>
-            );
-          })}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Session Name Modal ────────────────────────────────────────────────────────
-function NewSessionModal({ onConfirm, onClose }) {
-  const [name, setName] = useState("New Session");
-  return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <div style={{ background: C.surface, border: `1px solid ${C.border2}`, borderRadius: 12, padding: 28, width: 380, boxShadow: "0 24px 60px rgba(0,0,0,0.7)" }}>
-        <div style={{ fontSize: 15, fontWeight: 700, color: C.text, marginBottom: 16 }}>Create New Canvas</div>
-        <div style={{ fontSize: 12, color: C.textMuted, marginBottom: 6 }}>Canvas name</div>
-        <input autoFocus value={name} onChange={e => setName(e.target.value)}
-          onKeyDown={e => { if (e.key === "Enter") onConfirm(name); if (e.key === "Escape") onClose(); }}
-          style={{ width: "100%", padding: "9px 12px", background: C.surface2, border: `1px solid ${C.border2}`, borderRadius: 7, fontSize: 13, color: C.text, fontFamily: "inherit", outline: "none", boxSizing: "border-box", marginBottom: 20 }} />
-        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-          <button onClick={onClose} style={{ padding: "8px 16px", borderRadius: 6, border: `1px solid ${C.border2}`, background: "transparent", color: C.textMuted, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>Cancel</button>
-          <button onClick={() => onConfirm(name)} style={{ padding: "8px 18px", borderRadius: 6, border: `1px solid ${C.blueBorder}`, background: C.blueBg, color: C.blue, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Create Canvas</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Main MyCanvasView ──────────────────────────────────────────────────────────
-export default function MyCanvasView({ onNavigate }) {
-  const [sessions, setSessions] = useState(() => loadSessions() || DEFAULT_SESSIONS);
-  const [activeId, setActiveId] = useState(() => (loadSessions() || DEFAULT_SESSIONS)[0]?.id);
-  const [cardIndex, setCardIndex] = useState(0);
-  const [sessionDropOpen, setSessionDropOpen] = useState(false);
-  const [editingId, setEditingId] = useState(null);
-  const [editName, setEditName] = useState("");
-  const [showAddCard, setShowAddCard] = useState(false);
-  const [showNewSession, setShowNewSession] = useState(false);
-
-  useEffect(() => { saveSessions(sessions); }, [sessions]);
-
-  const session = sessions.find(s => s.id === activeId) || sessions[0];
-  const cards = session?.cards || [];
-  const totalCards = cards.length;
-
-  function handleNavigate(subKey, agentId, agentName) {
-    if (onNavigate) onNavigate(subKey, agentId, agentName);
-  }
-
-  function addCard(cardId) {
-    setSessions(prev => prev.map(s => s.id === activeId ? { ...s, cards: [...s.cards, cardId] } : s));
-  }
-
-  function removeCard(cardId) {
-    setSessions(prev => prev.map(s => s.id === activeId ? { ...s, cards: s.cards.filter(c => c !== cardId) } : s));
-    if (cardIndex >= cards.length - 1) setCardIndex(Math.max(0, cards.length - 2));
-  }
-
-  function createSession(name) {
-    const s = { id: `session-${Date.now()}`, name, createdAt: new Date().toISOString(), cards: ["book-of-business"] };
-    setSessions(prev => [...prev, s]);
-    setActiveId(s.id);
-    setCardIndex(0);
-    setShowNewSession(false);
-  }
-
-  function deleteSession(id) {
-    setSessions(prev => {
-      const next = prev.filter(s => s.id !== id);
-      if (activeId === id) setActiveId(next[0]?.id);
-      return next;
-    });
-  }
-
-  function renameSession(id, name) {
-    setSessions(prev => prev.map(s => s.id === id ? { ...s, name } : s));
-    setEditingId(null);
-  }
-
-  const currentCard = cards[cardIndex];
-  const catalogCard = CARD_CATALOG.find(c => c.id === currentCard);
-  const cardColor = catalogCard ? COLOR_MAP[catalogCard.color] : C.blue;
-  const cardBg    = catalogCard ? BG_MAP[catalogCard.color]    : C.blueBg;
-  const cardBorder= catalogCard ? BR_MAP[catalogCard.color]    : C.blueBorder;
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", background: C.bg }}>
-
-      {/* Top bar */}
-      <div style={{ padding: "11px 24px", borderBottom: `1px solid ${C.border}`, background: "#0c0d11", flexShrink: 0, display: "flex", alignItems: "center", gap: 12 }}>
-        {/* Session selector */}
-        <div style={{ position: "relative" }}>
-          <button onClick={() => setSessionDropOpen(o => !o)}
-            style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 14px", borderRadius: 8, border: `1px solid ${C.border2}`, background: C.surface2, color: C.text, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
-            <Zap size={13} color={C.blue} />
-            {session?.name || "Select"}
-            <ChevronDown size={12} color={C.textDim} />
-          </button>
-          {sessionDropOpen && (
-            <div style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, background: C.surface2, border: `1px solid ${C.border2}`, borderRadius: 10, zIndex: 30, minWidth: 230, boxShadow: "0 12px 32px rgba(0,0,0,0.6)", overflow: "hidden" }}>
-              {sessions.map(s => (
-                <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 14px", cursor: "pointer", background: s.id === activeId ? C.blueBg : "transparent", borderLeft: `2px solid ${s.id === activeId ? C.blue : "transparent"}` }}
-                  onMouseEnter={e => { if (s.id !== activeId) e.currentTarget.style.background = C.surface3; }}
-                  onMouseLeave={e => { if (s.id !== activeId) e.currentTarget.style.background = "transparent"; }}>
-                  {editingId === s.id ? (
-                    <input autoFocus value={editName} onChange={e => setEditName(e.target.value)}
-                      onKeyDown={e => { if (e.key === "Enter") renameSession(s.id, editName); if (e.key === "Escape") setEditingId(null); }}
-                      onClick={e => e.stopPropagation()}
-                      style={{ flex: 1, background: C.surface, border: `1px solid ${C.border2}`, borderRadius: 4, padding: "3px 7px", fontSize: 12, color: C.text, fontFamily: "inherit", outline: "none" }} />
-                  ) : (
-                    <span onClick={() => { setActiveId(s.id); setCardIndex(0); setSessionDropOpen(false); }} style={{ flex: 1, fontSize: 13, color: s.id === activeId ? C.blue : C.textMid }}>{s.name}</span>
-                  )}
-                  <button onClick={e => { e.stopPropagation(); setEditingId(s.id); setEditName(s.name); }}
-                    style={{ background: "none", border: "none", color: C.textDim, cursor: "pointer", display: "flex", padding: 2 }}><Edit2 size={11} /></button>
-                  {sessions.length > 1 && (
-                    <button onClick={e => { e.stopPropagation(); deleteSession(s.id); }}
-                      style={{ background: "none", border: "none", color: C.textDim, cursor: "pointer", display: "flex", padding: 2 }}><Trash2 size={11} /></button>
-                  )}
-                </div>
-              ))}
-              <div onClick={() => { setSessionDropOpen(false); setShowNewSession(true); }}
-                style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 14px", cursor: "pointer", borderTop: `1px solid ${C.border}`, color: C.blue, fontSize: 12 }}
-                onMouseEnter={e => e.currentTarget.style.background = C.surface3}
-                onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                <Plus size={12} /> New Canvas
-              </div>
+              <div style={{ fontSize:11, color:C.textMuted }}>{r.sub}</div>
             </div>
-          )}
-        </div>
-
-        <span style={{ fontSize: 11, color: C.textDim }}>Last updated: Today, 7:02 AM</span>
-
-        {/* Card nav dots */}
-        <div style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: "auto" }}>
-          <button onClick={() => setCardIndex(i => Math.max(0, i - 1))} disabled={cardIndex === 0}
-            style={{ width: 28, height: 28, borderRadius: 6, background: C.surface2, border: `1px solid ${C.border}`, color: cardIndex === 0 ? C.textDim : C.textMid, cursor: cardIndex === 0 ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", opacity: cardIndex === 0 ? 0.4 : 1 }}>
-            <ChevronLeft size={14} />
-          </button>
-          <div style={{ display: "flex", gap: 5, alignItems: "center" }}>
-            {cards.map((_, i) => (
-              <div key={i} onClick={() => setCardIndex(i)}
-                style={{ width: i === cardIndex ? 20 : 6, height: 6, borderRadius: 3, background: i === cardIndex ? cardColor : C.border2, cursor: "pointer", transition: "all 0.2s" }} />
-            ))}
+            <ArrowRight size={14} color={C.textDim}/>
           </div>
-          <button onClick={() => setCardIndex(i => Math.min(totalCards - 1, i + 1))} disabled={cardIndex === totalCards - 1}
-            style={{ width: 28, height: 28, borderRadius: 6, background: C.surface2, border: `1px solid ${C.border}`, color: cardIndex === totalCards - 1 ? C.textDim : C.textMid, cursor: cardIndex === totalCards - 1 ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", opacity: cardIndex === totalCards - 1 ? 0.4 : 1 }}>
-            <ChevronRight size={14} />
-          </button>
-          <span style={{ fontSize: 11, color: C.textDim, marginLeft: 4 }}>{cardIndex + 1} / {totalCards}</span>
-        </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
-        {/* Actions */}
-        <div style={{ display: "flex", gap: 8 }}>
-          <button style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 7, border: `1px solid ${C.border2}`, background: "transparent", color: C.textMuted, fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>
-            <RefreshCw size={12} /> Refresh All
-          </button>
-          {currentCard && (
-            <button onClick={() => removeCard(currentCard)}
-              style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 7, border: `1px solid ${C.border2}`, background: "transparent", color: C.textMuted, fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>
-              <X size={12} /> Remove
-            </button>
-          )}
-          <button onClick={() => setShowAddCard(true)}
-            style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 7, border: `1px solid ${cardBorder}`, background: cardBg, color: cardColor, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
-            <Plus size={12} /> Add Card
-          </button>
+// ── Client Acquisition card ────────────────────────────────────────────────────
+function ClientAcquisitionCard({ stats }) {
+  return (
+    <div style={{ padding:20, height:"100%", overflowY:"auto", background:C.bg }}>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:12, marginBottom:20 }}>
+        {[
+          { label:"Total Prospects",   value:stats.prospects, sub:"In pipeline",    clr:C.blue  },
+          { label:"High Priority",     value:23,              sub:"Need follow-up", clr:C.coral },
+          { label:"Avg Time to Close", value:"47 days",       sub:"This quarter",   clr:C.amber },
+        ].map((m,i)=>(
+          <div key={i} style={{ background:C.surface2, border:`1px solid ${C.border}`, borderRadius:10, padding:"12px 14px" }}>
+            <div style={{ fontSize:10, color:C.textDim, fontWeight:700, letterSpacing:".06em", textTransform:"uppercase", marginBottom:6 }}>{m.label}</div>
+            <div style={{ fontSize:22, fontWeight:700, color:m.clr, fontFamily:"monospace" }}>{m.value}</div>
+            <div style={{ fontSize:11, color:C.textMuted, marginTop:3 }}>{m.sub}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{ fontSize:11, fontWeight:700, color:C.textDim, letterSpacing:".06em", textTransform:"uppercase", marginBottom:12 }}>PIPELINE FUNNEL</div>
+      {[
+        { label:"New Leads",     value:24, clr:C.blue   },
+        { label:"Contacted",     value:18, clr:C.purple },
+        { label:"Proposal Sent", value:9,  clr:C.amber  },
+        { label:"In Review",     value:4,  clr:C.teal   },
+        { label:"Closed / Won",  value:2,  clr:C.teal   },
+      ].map((s,i)=>(
+        <div key={i} style={{ display:"flex", alignItems:"center", gap:10, marginBottom:10 }}>
+          <div style={{ fontSize:12, color:C.textMuted, width:110, flexShrink:0 }}>{s.label}</div>
+          <div style={{ flex:1, height:22, background:C.surface2, borderRadius:5, overflow:"hidden" }}>
+            <div style={{ width:`${(s.value/24)*100}%`, height:"100%", background:s.clr, borderRadius:5, opacity:.7 }}/>
+          </div>
+          <div style={{ fontSize:12, fontWeight:700, color:s.clr, width:24, textAlign:"right" }}>{s.value}</div>
         </div>
+      ))}
+    </div>
+  );
+}
+
+// ── Investment Insights card ──────────────────────────────────────────────────
+function InvestmentInsightsCard() {
+  return (
+    <div style={{ padding:20, height:"100%", overflowY:"auto", background:C.bg }}>
+      <div style={{ fontSize:11, fontWeight:700, color:C.textDim, letterSpacing:".06em", textTransform:"uppercase", marginBottom:14 }}>ACTIVE OPPORTUNITIES</div>
+      {[
+        { label:"Tax-Loss Opportunities",   value:"$87.4K",   badge:"14 accounts",  clr:C.teal   },
+        { label:"Rebalancing Required",     value:"38 accts", badge:">5% drift",    clr:C.amber  },
+        { label:"ESG Screening Flags",      value:"6 clients",badge:"Mismatch",     clr:C.purple },
+        { label:"Concentration Risk",       value:"$12.1M",   badge:"Single stock", clr:C.coral  },
+      ].map((o,i)=>(
+        <div key={i} style={{ display:"flex", alignItems:"center", gap:12, padding:"12px 14px", background:C.surface2, border:`1px solid ${C.border}`, borderRadius:10, marginBottom:8, cursor:"pointer" }}
+          onMouseEnter={e=>e.currentTarget.style.borderColor=o.clr}
+          onMouseLeave={e=>e.currentTarget.style.borderColor=C.border}>
+          <div style={{ flex:1 }}>
+            <div style={{ fontSize:13, fontWeight:600, color:C.text, marginBottom:3 }}>{o.label}</div>
+            <span style={{ fontSize:10, padding:"2px 8px", borderRadius:20, background:`${o.clr}22`, color:o.clr, border:`1px solid ${o.clr}44`, fontWeight:600 }}>{o.badge}</span>
+          </div>
+          <div style={{ fontSize:18, fontWeight:700, color:o.clr, fontFamily:"monospace" }}>{o.value}</div>
+          <ArrowRight size={14} color={C.textDim}/>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── Pinned Report card ────────────────────────────────────────────────────────
+function PinnedReportCard({ pin, onView, onUnpin }) {
+  return (
+    <div style={{ padding:20, height:"100%", overflowY:"auto", background:C.bg, display:"flex", flexDirection:"column", gap:16 }}>
+      <div style={{ display:"flex", alignItems:"flex-start", gap:12 }}>
+        <div style={{ width:44, height:44, borderRadius:12, background:C.blueBg, border:`1px solid ${C.blueBorder}`, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+          <FileText size={20} color={C.blue}/>
+        </div>
+        <div style={{ flex:1, minWidth:0 }}>
+          <div style={{ fontSize:15, fontWeight:700, color:C.text, marginBottom:3 }}>{pin.title}</div>
+          <div style={{ fontSize:11, color:C.textDim }}>Generated {pin.generatedAt}</div>
+        </div>
+        <button onClick={onUnpin} title="Unpin from Home"
+          style={{ background:"none", border:`1px solid ${C.border}`, borderRadius:6, padding:"4px 8px", cursor:"pointer", color:C.textDim, display:"flex", alignItems:"center", gap:4, fontSize:11, fontFamily:"inherit" }}>
+          <Trash2 size={11}/>Unpin
+        </button>
       </div>
 
-      {/* Card area — single card, full width */}
-      <div style={{ flex: 1, overflowY: "auto", padding: "20px 24px" }}>
-        {currentCard ? (
-          <div style={{ background: C.surface, border: `1px solid ${cardBorder}`, borderRadius: 14, padding: "22px 24px", minHeight: "calc(100% - 40px)" }}>
-            {/* Card header */}
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18, paddingBottom: 14, borderBottom: `1px solid ${C.border}` }}>
-              {catalogCard && (
-                <div style={{ width: 34, height: 34, borderRadius: 9, background: cardBg, border: `1px solid ${cardBorder}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <catalogCard.icon size={16} color={cardColor} />
-                </div>
-              )}
-              <div>
-                <div style={{ fontSize: 15, fontWeight: 700, color: C.text }}>{catalogCard?.title || currentCard}</div>
-                <div style={{ fontSize: 11, color: C.textDim }}>Morning Briefing · Today, 7:02 AM</div>
-              </div>
-              <span style={{ marginLeft: "auto", fontSize: 10, fontWeight: 700, padding: "3px 9px", borderRadius: 4, background: cardBg, color: cardColor, border: `1px solid ${cardBorder}` }}>
-                ● Live
-              </span>
+      {pin.summary && (
+        <div style={{ background:C.tealBg, border:`1px solid ${C.tealBorder}`, borderRadius:10, padding:14, fontSize:13, color:C.teal, lineHeight:1.6 }}>
+          {pin.summary}
+        </div>
+      )}
+
+      {pin.content?.stats?.length > 0 && (
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:10 }}>
+          {pin.content.stats.slice(0,4).map((s,i)=>(
+            <div key={i} style={{ background:s.bg||C.surface2, border:`1px solid ${s.border||C.border}`, borderRadius:9, padding:"10px 12px" }}>
+              <div style={{ fontSize:10, color:s.color||C.teal, fontWeight:700, textTransform:"uppercase", letterSpacing:".05em", marginBottom:4 }}>{s.label}</div>
+              <div style={{ fontSize:18, fontWeight:700, color:s.color||C.teal, fontFamily:"monospace" }}>{s.value}</div>
+              {s.sub&&<div style={{ fontSize:10, color:C.textDim, marginTop:2 }}>{s.sub}</div>}
             </div>
-            <CardContent cardId={currentCard} onNavigate={handleNavigate} />
+          ))}
+        </div>
+      )}
+
+      <button onClick={onView}
+        style={{ padding:"10px 20px", background:C.blue, color:"#fff", border:"none", borderRadius:9, fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:"inherit", display:"flex", alignItems:"center", justifyContent:"center", gap:8, marginTop:"auto" }}>
+        <FileText size={15}/>View Full Report
+      </button>
+    </div>
+  );
+}
+
+// ── Generic placeholder card ──────────────────────────────────────────────────
+function GenericCard({ entry }) {
+  return (
+    <div style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", height:"100%", gap:14, background:C.bg }}>
+      <div style={{ width:56, height:56, borderRadius:16, background:C.surface2, border:`1px solid ${C.border}`, display:"flex", alignItems:"center", justifyContent:"center" }}>
+        {entry?.icon ? <entry.icon size={26} color={entry.color||C.blue}/> : <BarChart2 size={26} color={C.blue}/>}
+      </div>
+      <div style={{ textAlign:"center" }}>
+        <div style={{ fontSize:16, fontWeight:700, color:C.text, marginBottom:6 }}>{entry?.title||"Card"}</div>
+        <div style={{ fontSize:12, color:C.textMuted, maxWidth:260 }}>{entry?.desc||""}</div>
+      </div>
+    </div>
+  );
+}
+
+// ── Add Card Modal ────────────────────────────────────────────────────────────
+function AddCardModal({ existingIds, onAdd, onClose, pinnedReports }) {
+  const available = CARD_CATALOG.filter(c => !existingIds.includes(c.id));
+  const availPinned = (pinnedReports||[]).filter(p => !existingIds.includes(p.id));
+  const nothing = !available.length && !availPinned.length;
+
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.6)", zIndex:100, display:"flex", alignItems:"center", justifyContent:"center" }}>
+      <div style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:14, padding:24, width:460, maxHeight:"80vh", overflowY:"auto", boxShadow:"0 24px 48px rgba(0,0,0,0.5)" }}>
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:18 }}>
+          <div style={{ fontSize:15, fontWeight:700, color:C.text }}>Add Card</div>
+          <button onClick={onClose} style={{ background:"none", border:"none", cursor:"pointer", color:C.textDim }}><X size={16}/></button>
+        </div>
+
+        {nothing && <div style={{ fontSize:13, color:C.textDim, textAlign:"center", padding:"20px 0" }}>All cards are on your canvas.</div>}
+
+        {available.length > 0 && (
+          <>
+            <div style={{ fontSize:10, fontWeight:700, color:C.textDim, letterSpacing:".07em", textTransform:"uppercase", marginBottom:8 }}>Dashboard Cards</div>
+            {available.map(c=>(
+              <div key={c.id} onClick={()=>{onAdd(c.id);onClose();}}
+                style={{ display:"flex", alignItems:"center", gap:12, padding:"10px 12px", border:`1px solid ${C.border}`, borderRadius:9, marginBottom:7, cursor:"pointer" }}
+                onMouseEnter={e=>{e.currentTarget.style.background=C.surface2;e.currentTarget.style.borderColor=C.blue;}}
+                onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.borderColor=C.border;}}>
+                <div style={{ width:32, height:32, borderRadius:8, background:C.surface2, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                  <c.icon size={16} color={c.color||C.blue}/>
+                </div>
+                <div><div style={{ fontSize:13, fontWeight:600, color:C.text }}>{c.title}</div><div style={{ fontSize:11, color:C.textMuted }}>{c.desc}</div></div>
+              </div>
+            ))}
+          </>
+        )}
+
+        {availPinned.length > 0 && (
+          <>
+            <div style={{ fontSize:10, fontWeight:700, color:C.textDim, letterSpacing:".07em", textTransform:"uppercase", margin:"14px 0 8px" }}>
+              ★ Pinned Reports
+            </div>
+            {availPinned.map(p=>(
+              <div key={p.id} onClick={()=>{onAdd(p.id);onClose();}}
+                style={{ display:"flex", alignItems:"center", gap:12, padding:"10px 12px", border:`1px solid ${C.blueBorder}`, borderRadius:9, marginBottom:7, cursor:"pointer", background:C.blueBg }}
+                onMouseEnter={e=>e.currentTarget.style.opacity=".85"}
+                onMouseLeave={e=>e.currentTarget.style.opacity="1"}>
+                <div style={{ width:32, height:32, borderRadius:8, background:C.surface2, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                  <FileText size={16} color={C.blue}/>
+                </div>
+                <div>
+                  <div style={{ fontSize:13, fontWeight:600, color:C.text }}>{p.title}</div>
+                  <div style={{ fontSize:11, color:C.textMuted }}>Pinned report · {p.generatedAt}</div>
+                </div>
+                <Star size={12} color={C.blue} style={{marginLeft:"auto",flexShrink:0}} fill={C.blue}/>
+              </div>
+            ))}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Session picker ────────────────────────────────────────────────────────────
+function SessionPicker({ sessions, current, onCreate, onSwitch, onDelete, onClose }) {
+  const [name, setName] = useState("");
+  return (
+    <div style={{ position:"absolute", top:52, left:16, zIndex:50, background:C.surface, border:`1px solid ${C.border}`, borderRadius:10, padding:14, width:260, boxShadow:"0 8px 24px rgba(0,0,0,0.3)" }}>
+      {sessions.map(s=>(
+        <div key={s.id} style={{ display:"flex", alignItems:"center", gap:8, padding:"7px 8px", borderRadius:7, cursor:"pointer", background:current.id===s.id?C.surface2:"transparent" }}>
+          <div onClick={()=>{onSwitch(s);onClose();}} style={{ flex:1 }}>
+            <div style={{ fontSize:13, fontWeight:current.id===s.id?600:400, color:C.text }}>{s.name}</div>
+            <div style={{ fontSize:11, color:C.textDim }}>{s.cards.length} card{s.cards.length!==1?"s":""}</div>
+          </div>
+          {s.id!=="session-default"&&<button onClick={()=>onDelete(s.id)} style={{ background:"none", border:"none", cursor:"pointer", color:C.textDim, fontSize:16 }}>×</button>}
+        </div>
+      ))}
+      <div style={{ borderTop:`1px solid ${C.border}`, marginTop:8, paddingTop:8, display:"flex", gap:6 }}>
+        <input value={name} onChange={e=>setName(e.target.value)} placeholder="New session name…"
+          onKeyDown={e=>{if(e.key==="Enter"&&name.trim()){onCreate(name.trim());setName("");onClose();}}}
+          style={{ flex:1, background:C.surface2, border:`1px solid ${C.border}`, borderRadius:6, padding:"5px 8px", fontSize:12, color:C.text, outline:"none" }}/>
+        <button onClick={()=>{if(name.trim()){onCreate(name.trim());setName("");onClose();}}}
+          style={{ padding:"5px 10px", background:C.teal, color:"#fff", border:"none", borderRadius:6, fontSize:12, cursor:"pointer" }}>+</button>
+      </div>
+    </div>
+  );
+}
+
+// ── Main ─────────────────────────────────────────────────────────────────────
+export default function MyCanvasView({ onNavigate, pinnedReports=[], onViewReport, onUnpinReport }) {
+  const stats = computeStats();
+
+  function loadState() {
+    try { const s = localStorage.getItem(STORE_KEY); if (s) return JSON.parse(s); } catch {}
+    return { sessions:[{...DEFAULT_SESSION}], currentId:"session-default" };
+  }
+
+  const [state,      setState]     = useState(loadState);
+  const [cardIdx,    setCardIdx]   = useState(0);
+  const [showModal,  setShowModal] = useState(false);
+  const [showPicker, setShowPicker]= useState(false);
+
+  function save(next) { setState(next); try { localStorage.setItem(STORE_KEY, JSON.stringify(next)); } catch {} }
+
+  const session   = state.sessions.find(s=>s.id===state.currentId) || state.sessions[0] || {...DEFAULT_SESSION};
+  const cardIds   = session.cards || [];
+  const total     = cardIds.length;
+  const idx       = Math.min(cardIdx, Math.max(0, total-1));
+  const currentId = cardIds[idx];
+
+  // Find card definition — check catalog first, then pinned reports
+  const catalogEntry  = CARD_CATALOG.find(c=>c.id===currentId);
+  const pinnedEntry   = pinnedReports.find(p=>p.id===currentId);
+
+  function nav(dir) {
+    if (dir===1&&idx<total-1) setCardIdx(i=>i+1);
+    if (dir===-1&&idx>0)      setCardIdx(i=>i-1);
+  }
+  function addCard(id) {
+    const next = {...state, sessions:state.sessions.map(s=>s.id===session.id?{...s,cards:[...s.cards,id]}:s)};
+    save(next); setCardIdx(session.cards.length);
+  }
+  function removeCard() {
+    if (total<=1||!confirm(`Remove this card?`)) return;
+    const next = {...state, sessions:state.sessions.map(s=>s.id===session.id?{...s,cards:s.cards.filter((_,i)=>i!==idx)}:s)};
+    save(next); setCardIdx(Math.max(0,idx-1));
+  }
+  function createSession(name) {
+    const id=`session-${Date.now()}`;
+    save({sessions:[...state.sessions,{id,name,cards:["book-of-business"]}],currentId:id});
+    setCardIdx(0);
+  }
+  function switchSession(s) { save({...state,currentId:s.id}); setCardIdx(0); }
+  function deleteSession(id) {
+    if (!confirm("Delete this session?")) return;
+    const next={sessions:state.sessions.filter(s=>s.id!==id),currentId:state.sessions.find(s=>s.id!==id)?.id||"session-default"};
+    save(next); setCardIdx(0);
+  }
+
+  return (
+    <div style={{ display:"flex", flexDirection:"column", height:"100%", overflow:"hidden", background:C.bg, position:"relative" }}>
+
+      {/* Topbar */}
+      <div style={{ height:52, background:C.surface, borderBottom:`1px solid ${C.border}`, display:"flex", alignItems:"center", padding:"0 16px", gap:10, flexShrink:0 }}>
+        <button onClick={()=>setShowPicker(o=>!o)}
+          style={{ display:"flex", alignItems:"center", gap:6, padding:"5px 10px", background:C.surface2, border:`1px solid ${C.border}`, borderRadius:7, cursor:"pointer", fontSize:13, fontWeight:600, color:C.text, fontFamily:"inherit" }}>
+          <Activity size={13} color={C.teal}/>{session.name}<ChevronDown size={12} color={C.textDim}/>
+        </button>
+        <div style={{ fontSize:11, color:C.textDim }}>
+          Last updated: {new Date().toLocaleString("en-US",{weekday:"short",month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"})}
+        </div>
+        <div style={{flex:1}}/>
+        <button onClick={()=>nav(-1)} disabled={idx===0}
+          style={{ width:28,height:28,borderRadius:6,border:`1px solid ${C.border}`,background:"transparent",color:idx===0?C.textDim:C.textMid,cursor:idx===0?"default":"pointer",display:"flex",alignItems:"center",justifyContent:"center" }}>
+          <ChevronLeft size={14}/>
+        </button>
+        <span style={{ fontSize:12, color:C.textDim, minWidth:40, textAlign:"center" }}>
+          {total>0?`${idx+1} / ${total}`:"0 / 0"}
+        </span>
+        <button onClick={()=>nav(1)} disabled={idx>=total-1}
+          style={{ width:28,height:28,borderRadius:6,border:`1px solid ${C.border}`,background:"transparent",color:idx>=total-1?C.textDim:C.textMid,cursor:idx>=total-1?"default":"pointer",display:"flex",alignItems:"center",justifyContent:"center" }}>
+          <ChevronRight size={14}/>
+        </button>
+        {total>0&&<>
+          <button onClick={()=>{}} style={{ display:"flex",alignItems:"center",gap:5,padding:"5px 10px",background:"transparent",border:`1px solid ${C.border}`,borderRadius:7,cursor:"pointer",fontSize:12,color:C.textDim,fontFamily:"inherit" }}>
+            <RefreshCw size={12}/>Refresh All
+          </button>
+          <button onClick={removeCard} style={{ display:"flex",alignItems:"center",gap:5,padding:"5px 10px",background:"transparent",border:`1px solid ${C.border}`,borderRadius:7,cursor:"pointer",fontSize:12,color:C.textDim,fontFamily:"inherit" }}>
+            <X size={12}/>Remove
+          </button>
+        </>}
+        <button onClick={()=>setShowModal(true)}
+          style={{ display:"flex",alignItems:"center",gap:5,padding:"5px 12px",background:C.teal,border:"none",borderRadius:7,cursor:"pointer",fontSize:12,fontWeight:600,color:"#fff",fontFamily:"inherit" }}>
+          <Plus size={12}/>Add Card
+        </button>
+      </div>
+
+      {/* Dots */}
+      {total>1&&(
+        <div style={{ display:"flex",justifyContent:"center",gap:6,padding:"8px 0 0",flexShrink:0,background:C.bg }}>
+          {cardIds.map((_,i)=>(
+            <button key={i} onClick={()=>setCardIdx(i)}
+              style={{ width:8,height:8,borderRadius:"50%",background:i===idx?C.teal:C.border,border:"none",cursor:"pointer",padding:0,transition:"background .15s" }}/>
+          ))}
+        </div>
+      )}
+
+      {/* Card */}
+      <div style={{ flex:1, overflow:"hidden" }}>
+        {total===0 ? (
+          <div style={{ display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:"100%",gap:16 }}>
+            <div style={{ width:64,height:64,borderRadius:16,background:C.surface2,border:`1px solid ${C.border}`,display:"flex",alignItems:"center",justifyContent:"center" }}>
+              <Star size={28} color={C.textDim}/>
+            </div>
+            <div style={{ fontSize:16, color:C.textMuted }}>No cards on this canvas yet.</div>
+            <button onClick={()=>setShowModal(true)}
+              style={{ display:"flex",alignItems:"center",gap:6,padding:"8px 20px",background:C.teal,border:"none",borderRadius:8,cursor:"pointer",fontSize:14,fontWeight:600,color:"#fff",fontFamily:"inherit" }}>
+              <Plus size={14}/>Add your first card
+            </button>
           </div>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", gap: 14, color: C.textDim }}>
-            <div style={{ fontSize: 14, color: C.textMuted }}>No cards on this canvas yet.</div>
-            <button onClick={() => setShowAddCard(true)}
-              style={{ display: "flex", alignItems: "center", gap: 7, padding: "9px 18px", borderRadius: 7, border: `1px solid ${C.blueBorder}`, background: C.blueBg, color: C.blue, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
-              <Plus size={14} /> Add your first card
-            </button>
+          <div style={{ height:"100%", overflow:"hidden" }}>
+            {/* Pinned report card */}
+            {pinnedEntry && (
+              <PinnedReportCard
+                pin={pinnedEntry}
+                onView={()=>onViewReport&&onViewReport(pinnedEntry.content)}
+                onUnpin={()=>{onUnpinReport&&onUnpinReport(pinnedEntry.id);removeCard();}}
+              />
+            )}
+            {/* Standard cards */}
+            {!pinnedEntry && currentId==="book-of-business"    && <BookOfBusinessCard   stats={stats}/>}
+            {!pinnedEntry && currentId==="client-acquisition"  && <ClientAcquisitionCard stats={stats}/>}
+            {!pinnedEntry && currentId==="investment-insights" && <InvestmentInsightsCard/>}
+            {!pinnedEntry && !["book-of-business","client-acquisition","investment-insights"].includes(currentId) && (
+              <GenericCard entry={catalogEntry}/>
+            )}
           </div>
         )}
       </div>
 
-      {showAddCard && <AddCardModal currentCards={cards} onAdd={addCard} onClose={() => setShowAddCard(false)} />}
-      {showNewSession && <NewSessionModal onConfirm={createSession} onClose={() => setShowNewSession(false)} />}
+      {showPicker&&<SessionPicker sessions={state.sessions} current={session} onCreate={createSession} onSwitch={switchSession} onDelete={deleteSession} onClose={()=>setShowPicker(false)}/>}
+      {showModal&&<AddCardModal existingIds={cardIds} onAdd={addCard} onClose={()=>setShowModal(false)} pinnedReports={pinnedReports}/>}
     </div>
   );
 }
