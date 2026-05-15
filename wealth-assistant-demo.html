@@ -1,0 +1,897 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Wealth Assistant</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#1e1d1d;height:100vh;overflow:hidden;font-size:13px;color:#1a1a1a}
+#modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:999}
+#modal.gone{display:none}
+.mbox{background:#fff;border-radius:14px;padding:36px 32px;width:420px;box-shadow:0 24px 60px rgba(0,0,0,.3)}
+.mbox h2{font-size:20px;font-weight:600;margin-bottom:6px}
+.mbox p{font-size:13px;color:#666;margin-bottom:20px;line-height:1.55}
+.mbox input{width:100%;padding:10px 14px;border:1px solid #ddd;border-radius:8px;font-size:13px;font-family:inherit;outline:none;margin-bottom:12px;transition:border .15s}
+.mbox input:focus{border-color:#6264A7;box-shadow:0 0 0 3px rgba(98,100,167,.12)}
+.mbox button{width:100%;padding:11px;background:#6264A7;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px}
+.mbox button:hover{background:#535494}
+.mbox small{display:block;text-align:center;color:#aaa;margin-top:10px;font-size:11px}
+#shell{display:flex;height:100vh}
+/* RAIL */
+#rail{width:48px;background:#1e1d1d;display:flex;flex-direction:column;align-items:center;padding:8px 0;flex-shrink:0}
+.ri{display:flex;flex-direction:column;align-items:center;gap:2px;width:44px;padding:7px 0;cursor:pointer;color:#c8c6c4;border-radius:6px;font-size:9px;text-align:center;position:relative}
+.ri:hover{color:#fff;background:#2d2c2c}
+.ri.on{color:#fff}
+.ri.on::before{content:'';position:absolute;left:0;top:50%;transform:translateY(-50%);width:3px;height:20px;background:#6264A7;border-radius:0 3px 3px 0}
+.ri i{font-size:20px}
+.rsep{width:28px;height:1px;background:#333;margin:5px 0}
+.rbot{margin-top:auto;padding-bottom:10px;display:flex;flex-direction:column;align-items:center;gap:4px}
+.rav{width:28px;height:28px;border-radius:50%;background:#6264A7;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700;cursor:pointer;border:1.5px solid rgba(255,255,255,.2)}
+/* PANEL */
+#panel{width:248px;background:#f5f5f5;border-right:1px solid #e0e0e0;display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto}
+.ph{padding:13px 12px 10px;background:#fff;border-bottom:1px solid #eee;display:flex;align-items:center;gap:8px;position:sticky;top:0;z-index:2}
+.phic{width:24px;height:24px;border-radius:5px;background:#6264A7;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px}
+.ps{padding:10px 12px 4px;font-size:10px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.06em}
+.tr{margin:0 8px 6px;padding:10px 12px;background:#fff;border-radius:8px;border:1px solid #ebebeb;border-left:3px solid #6264A7;cursor:pointer;transition:box-shadow .15s;user-select:none}
+.tr:hover{box-shadow:0 2px 8px rgba(0,0,0,.09)}
+.tr.u{border-left-color:#cc4a31}.tr.w{border-left-color:#e6a817}
+.tbg{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px}
+.bp{color:#6264A7}.bu{color:#cc4a31}.bw{color:#c68a00}
+.tt{font-size:12px;font-weight:500;margin-bottom:1px}
+.tm{font-size:11px;color:#888}
+.pdiv{height:1px;background:#e8e8e8;margin:5px 12px}
+.qi{display:flex;align-items:center;gap:8px;padding:7px 12px;cursor:pointer;border-radius:6px;margin:0 8px 2px;color:#444;font-size:12px;user-select:none}
+.qi:hover{background:#ebebeb}
+.qi i{font-size:15px;color:#888;width:18px;text-align:center}
+/* CANVAS */
+#canvas{flex:1;display:flex;flex-direction:column;overflow:hidden;background:#fff}
+.ctop{height:46px;border-bottom:1px solid #eee;display:flex;align-items:center;padding:0 16px;gap:8px;flex-shrink:0}
+.ctic{width:20px;height:20px;border-radius:4px;background:#6264A7;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px}
+.tacts{margin-left:auto;display:flex;gap:4px}
+.ib{height:30px;padding:0 10px;border-radius:6px;display:flex;align-items:center;gap:5px;background:transparent;border:none;cursor:pointer;color:#888;font-size:12px;font-family:inherit;white-space:nowrap;user-select:none}
+.ib:hover{background:#f0f0f0;color:#333}
+.ib i{font-size:15px}
+.ibs{border:1px solid #d8d8e8;color:#6264A7;font-weight:500}
+.ibs:hover{background:rgba(98,100,167,.07)}
+/* MESSAGES */
+#msgs{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:16px}
+#msgs::-webkit-scrollbar{width:5px}
+#msgs::-webkit-scrollbar-thumb{background:#ddd;border-radius:3px}
+.row{display:flex;gap:10px;align-items:flex-start}
+.row.u{flex-direction:row-reverse}
+.av{width:30px;height:30px;border-radius:7px;background:#6264A7;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;flex-shrink:0;margin-top:1px}
+.av.u{border-radius:50%;font-size:10px;font-weight:700;background:#4a4a9a}
+.mc{max-width:86%;display:flex;flex-direction:column;gap:8px}
+.mc.u{align-items:flex-end}
+.mc.full{max-width:100%}
+.bub{font-size:13px;line-height:1.6;color:#1a1a1a}
+.bub.ai{padding:2px 0}
+.bub.me{background:#eeeeff;border-radius:14px 14px 2px 14px;padding:10px 14px}
+.bub p{margin-bottom:7px}.bub p:last-child{margin:0}
+.bub ul,.bub ol{padding-left:18px}.bub li{margin-bottom:3px}
+.bub strong{font-weight:600}
+/* THINKING */
+.thk{display:inline-flex;align-items:center;gap:10px;padding:10px 15px;background:#f5f5fc;border:1px solid #e0e0f4;border-radius:10px}
+.dots span{display:inline-block;width:7px;height:7px;border-radius:50%;background:#6264A7;animation:dot 1.2s ease infinite;margin-right:3px}
+.dots span:nth-child(2){animation-delay:.2s}
+.dots span:nth-child(3){animation-delay:.4s}
+/* CHIPS */
+.chips{display:flex;gap:7px;flex-wrap:wrap;margin-top:2px}
+.chip{padding:6px 14px;border:1px solid #d8d8d8;border-radius:16px;background:#fff;cursor:pointer;font-size:12px;color:#333;font-family:inherit;transition:all .15s;line-height:1;user-select:none}
+.chip:hover{border-color:#6264A7;background:rgba(98,100,167,.07);color:#6264A7}
+/* ALERT */
+.alc{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border-radius:10px;margin:2px 0}
+.alc.urgent{background:#fff8f6;border:1px solid #f5c6bb}
+.alc.info{background:#f4f4ff;border:1px solid #d0d0f0}
+.alc.success{background:#f1fdf4;border:1px solid #b8e6c4}
+.alc i{font-size:18px;flex-shrink:0;margin-top:1px}
+.alt{font-size:13px;font-weight:600;margin-bottom:3px}
+.alb{font-size:12px;color:#555;line-height:1.5}
+/* TABLE */
+.tcard{border:1px solid #e0e0e0;border-radius:10px;overflow:hidden;margin:2px 0}
+.thead{padding:9px 14px;font-size:11px;font-weight:600;color:#555;text-transform:uppercase;letter-spacing:.05em;background:#fafafa;border-bottom:1px solid #eee}
+.tcard table{width:100%;border-collapse:collapse;font-size:12px}
+.tcard th{padding:7px 12px;text-align:left;font-weight:500;color:#666;background:#f8f8f8;border-bottom:1px solid #eee;white-space:nowrap}
+.tcard td{padding:7px 12px;border-bottom:1px solid #f5f5f5;color:#1a1a1a}
+.tcard tr:last-child td{border:none}
+.tcard tr:hover td{background:#fafafe}
+.cg{color:#2e7d32;font-weight:500}.cr{color:#c62828;font-weight:500}
+/* PROGRESS */
+.pgcard{border:1px solid #e0e0e0;border-left:3px solid #6264A7;border-radius:10px;overflow:hidden;margin:2px 0}
+.pghd{padding:10px 14px;border-bottom:1px solid #f0f0f0;display:flex;align-items:center;justify-content:space-between}
+.pgt{font-size:13px;font-weight:600}
+.pbdg{display:flex;align-items:center;gap:4px;padding:2px 9px;border-radius:10px;font-size:10px;font-weight:600}
+.pbdg.live{background:rgba(98,100,167,.1);border:1px solid rgba(98,100,167,.3);color:#6264A7}
+.pbdg.done{background:rgba(46,125,50,.1);border:1px solid rgba(46,125,50,.3);color:#2e7d32}
+.ldot{width:5px;height:5px;border-radius:50%;background:#6264A7;animation:blink 1.4s ease infinite}
+.pgbd{padding:12px 14px 8px}
+.srow{display:flex;gap:10px;margin-bottom:8px}
+.srow:last-child{margin-bottom:0}
+.scol{display:flex;flex-direction:column;align-items:center;width:20px;flex-shrink:0}
+.sic{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px}
+.sic.done{background:#e8f5e9;color:#2e7d32}
+.sic.run{background:rgba(98,100,167,.12);color:#6264A7;border:1px solid rgba(98,100,167,.3)}
+.sic.wait{background:#f5f5f5;color:#ccc;border:1px solid #e0e0e0}
+.sln{width:1px;flex:1;min-height:8px;margin:2px 0}
+.sln.done{background:#c8e6c9}.sln.other{background:#e8e8e8}
+.stxt{flex:1}
+.slbl{font-size:12px;font-weight:500;color:#1a1a1a}
+.slbl.dim{color:#aaa;font-weight:400}
+.snote{font-size:11px;color:#888;margin-top:1px}
+.snote.ok{color:#2e7d32}
+/* CARD */
+.gcard{border:1px solid #e0e0e0;border-radius:10px;overflow:hidden;margin:2px 0}
+.gchead{padding:10px 14px;background:#fafaff;border-bottom:1px solid #f0f0f0;display:flex;align-items:flex-start;gap:10px}
+.gchead i{font-size:16px;color:#6264A7;margin-top:1px;flex-shrink:0}
+.gcapp{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:#888;display:block;margin-bottom:2px}
+.gctitle{font-size:13px;font-weight:600;color:#1a1a1a}
+.gcbadge{padding:2px 9px;border-radius:10px;font-size:10px;font-weight:600;white-space:nowrap;margin-left:auto;align-self:flex-start;flex-shrink:0}
+.gcbody{padding:14px}
+.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.fgrid.single{grid-template-columns:1fr}
+.frow{display:flex;flex-direction:column;gap:3px}
+.frow label{font-size:10px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.04em}
+.frow .v{font-size:12px;color:#1a1a1a}
+.emailbody{white-space:pre-wrap;font-size:12px;line-height:1.75;background:#f9f9fb;border:1px solid #ebebeb;border-radius:8px;padding:14px;margin-top:4px;color:#1a1a1a;font-family:inherit}
+.gcfoot{padding:10px 14px;border-top:1px solid #f0f0f0;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.glink{display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border:1px solid #e0e0e0;border-radius:7px;font-size:12px;color:#6264A7;cursor:pointer;font-weight:500;transition:all .15s;white-space:nowrap;font-family:inherit;background:#fff;user-select:none}
+.glink:hover{background:rgba(98,100,167,.07);border-color:#6264A7}
+/* AGENT GRID */
+.agintro{font-size:12px;color:#888;margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.aggrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.agc{border-radius:10px;overflow:hidden;border:1px solid #e0e0e0}
+.agch{padding:9px 12px;display:flex;align-items:center;gap:7px}
+.agch i{font-size:14px;color:#fff}
+.agch span{font-size:12px;font-weight:600;color:#fff}
+.agcb{padding:6px;background:#fff;display:flex;flex-direction:column;gap:3px}
+.sk{padding:5px 9px;border:1px solid #ebebeb;border-radius:6px;background:#fafafa;cursor:pointer;font-size:11.5px;color:#333;font-family:inherit;text-align:left;width:100%;transition:all .12s;user-select:none}
+.sk:hover{background:rgba(98,100,167,.08);color:#6264A7;border-color:#c8c8e8}
+/* @MENTION */
+#mdrop{position:absolute;bottom:calc(100% + 4px);left:0;width:280px;background:#fff;border:1px solid #e0e0e0;border-radius:10px;box-shadow:0 8px 28px rgba(0,0,0,.14);display:none;z-index:50;max-height:240px;overflow-y:auto}
+#mdrop.show{display:block}
+.msec{padding:6px 10px 3px;font-size:10px;font-weight:600;color:#bbb;text-transform:uppercase;letter-spacing:.06em}
+.mi{display:flex;align-items:center;gap:10px;padding:8px 12px;cursor:pointer;user-select:none}
+.mi:hover,.mi.on{background:#f0f0ff}
+.mav{width:27px;height:27px;border-radius:50%;display:flex;align-items:center;justify-content:middle;font-size:10px;font-weight:700;color:#fff;flex-shrink:0;align-items:center;justify-content:center}
+.mav.ag{border-radius:6px}
+.mn{font-size:13px;font-weight:500;color:#1a1a1a}
+.ms{font-size:11px;color:#888}
+/* COMPOSE */
+#compose{padding:10px 16px 12px;border-top:1px solid #eee;flex-shrink:0;position:relative}
+.cbox{border:1px solid #d0d0d0;border-radius:10px;overflow:visible;transition:border .15s,box-shadow .15s}
+.cbox:focus-within{border-color:#6264A7;box-shadow:0 0 0 3px rgba(98,100,167,.1)}
+.ctb{display:flex;align-items:center;padding:4px 8px;border-bottom:1px solid #f0f0f0;gap:2px}
+.tb{width:26px;height:26px;border-radius:4px;display:flex;align-items:center;justify-content:center;background:transparent;border:none;cursor:pointer;color:#888;user-select:none}
+.tb:hover{background:#f0f0f0;color:#333}
+.tb i{font-size:14px}
+.tsep{width:1px;height:14px;background:#e8e8e8;margin:0 3px}
+.agpill{display:flex;align-items:center;gap:5px;padding:3px 8px;border-radius:4px;background:transparent;border:none;cursor:pointer;font-size:12px;color:#555;font-family:inherit;user-select:none}
+.agpill:hover{background:#f0f0f0}
+.agpill .dot{width:14px;height:14px;border-radius:3px;background:#6264A7;display:flex;align-items:center;justify-content:center}
+.agpill .dot i{font-size:9px;color:#fff}
+.gridpill{margin-left:auto;display:flex;align-items:center;gap:4px;padding:3px 8px;border-radius:4px;background:transparent;border:none;cursor:pointer;font-size:11.5px;color:#6264A7;font-family:inherit;user-select:none}
+.gridpill:hover{background:rgba(98,100,167,.08)}
+.gridpill i{font-size:13px}
+.cinrow{display:flex;align-items:flex-end}
+#ci{flex:1;min-height:38px;max-height:120px;padding:9px 14px;border:none;outline:none;resize:none;font-size:13px;font-family:inherit;color:#1a1a1a;background:transparent;line-height:1.5}
+#ci::placeholder{color:#aaa}
+#sb{width:32px;height:32px;border-radius:7px;background:#6264A7;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;margin:0 6px 6px 0;color:#fff;transition:background .15s;flex-shrink:0}
+#sb:hover{background:#535494}
+#sb:disabled{background:#ccc;cursor:default}
+.disc{font-size:11px;color:#bbb;text-align:center;margin-top:6px}
+@keyframes dot{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-5px)}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spin{animation:spin .8s linear infinite;display:inline-block}
+</style>
+</head>
+<body>
+
+<div id="modal">
+  <div class="mbox">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px">
+      <div style="width:38px;height:38px;border-radius:8px;background:#6264A7;display:flex;align-items:center;justify-content:center;color:#fff;font-size:20px"><i class="ti ti-chart-line"></i></div>
+      <span style="font-size:17px;font-weight:600">Wealth Assistant</span>
+    </div>
+    <h2>Good morning, James &#128075;</h2>
+    <p>Enter your Claude API key to start. It goes directly to Anthropic &mdash; never stored here.</p>
+    <input type="password" id="ki" placeholder="sk-ant-api03-..." autocomplete="off">
+    <button id="startbtn"><i class="ti ti-sun"></i> &nbsp;Start my day</button>
+    <small>Key disappears when you close this tab.</small>
+  </div>
+</div>
+
+<div id="shell">
+
+<nav id="rail">
+  <div style="width:36px;height:36px;display:flex;align-items:center;justify-content:center;margin-bottom:8px">
+    <svg width="22" height="22" viewBox="0 0 22 22"><rect width="22" height="22" rx="5" fill="#5b5ea6"/><text x="11" y="15.5" text-anchor="middle" fill="white" font-size="13" font-weight="700" font-family="Segoe UI">T</text></svg>
+  </div>
+  <div class="ri" id="r-activity" style="position:relative"><i class="ti ti-bell"></i><span>Activity</span><span style="position:absolute;top:5px;right:4px;width:7px;height:7px;background:#cc4a31;border-radius:50%;border:1.5px solid #1e1d1d"></span></div>
+  <div class="ri" id="r-chat"><i class="ti ti-message"></i><span>Chat</span></div>
+  <div class="ri" id="r-teams"><i class="ti ti-users"></i><span>Teams</span></div>
+  <div class="ri" id="r-calendar"><i class="ti ti-calendar"></i><span>Calendar</span></div>
+  <div class="ri" id="r-files"><i class="ti ti-folder"></i><span>Files</span></div>
+  <div class="rsep"></div>
+  <div class="ri on"><div style="width:24px;height:24px;border-radius:5px;background:#6264A7;display:flex;align-items:center;justify-content:center"><i class="ti ti-chart-line" style="font-size:13px;color:#fff"></i></div><span>Wealth</span></div>
+  <div class="ri" id="r-apps"><i class="ti ti-apps"></i><span>Apps</span></div>
+  <div class="rbot">
+    <div class="ri" id="r-help"><i class="ti ti-help"></i></div>
+    <div class="ri" id="r-settings"><i class="ti ti-settings"></i></div>
+    <div class="rav">JT</div>
+  </div>
+</nav>
+
+<div id="panel">
+  <div class="ph">
+    <div class="phic"><i class="ti ti-chart-line"></i></div>
+    <span style="font-size:14px;font-weight:600">Wealth Assistant</span>
+  </div>
+  <div class="ps">This Morning</div>
+  <div class="tr" id="p-prospect">
+    <div class="tbg bp"><i class="ti ti-star" style="font-size:9px"></i> New Prospect &mdash; Start Here</div>
+    <div class="tt">David Park &mdash; via Chen, L.</div>
+    <div class="tm">Tech exec &middot; $3.2M NW &middot; 8:15am</div>
+  </div>
+  <div class="tr u" id="p-wire">
+    <div class="tbg bu"><i class="ti ti-bolt" style="font-size:9px"></i> Urgent &middot; Wire Request</div>
+    <div class="tt">Patterson, R. &mdash; $250,000 wire</div>
+    <div class="tm">New destination &middot; 7:42am</div>
+  </div>
+  <div class="tr w" id="p-market">
+    <div class="tbg bw"><i class="ti ti-alert-triangle" style="font-size:9px"></i> Market Watch</div>
+    <div class="tt">Tech Sector &minus;2.3% overnight</div>
+    <div class="tm">4 clients with exposure</div>
+  </div>
+  <div class="tr w" id="p-service">
+    <div class="tbg bw"><i class="ti ti-tool" style="font-size:9px"></i> Service Queue</div>
+    <div class="tt">3 items pending review</div>
+    <div class="tm">Wires &middot; Account changes &middot; Docs</div>
+  </div>
+  <div class="pdiv"></div>
+  <div class="ps">Quick Launch</div>
+  <div class="qi" id="q-grid"><i class="ti ti-layout-grid"></i><span>All Agents &amp; Skills</span></div>
+  <div class="qi" id="q-brief"><i class="ti ti-sun"></i><span>Morning Briefing</span></div>
+  <div class="qi" id="q-tlh"><i class="ti ti-trending-down"></i><span>Tax Loss Harvesting</span></div>
+  <div class="qi" id="q-health"><i class="ti ti-chart-bar"></i><span>Practice Health Check</span></div>
+  <div class="qi" id="q-mkbrief"><i class="ti ti-news"></i><span>Morning Market Brief</span></div>
+  <div class="qi" id="q-engage"><i class="ti ti-users"></i><span>Low Engagement Clients</span></div>
+  <div class="qi" id="q-life"><i class="ti ti-calendar-event"></i><span>Life Event Alerts</span></div>
+  <div class="qi" id="q-rebal"><i class="ti ti-adjustments"></i><span>Portfolio Rebalancing</span></div>
+</div>
+
+<div id="canvas">
+  <div class="ctop">
+    <div class="ctic"><i class="ti ti-chart-line" style="font-size:11px"></i></div>
+    <span style="font-size:14px;font-weight:600">Wealth Assistant</span>
+    <span id="tdate" style="font-size:12px;color:#888;margin-left:4px"></span>
+    <div class="tacts">
+      <button class="ib ibs" id="t-grid"><i class="ti ti-layout-grid"></i> Agents &amp; Skills</button>
+      <button class="ib" id="t-search"><i class="ti ti-search"></i></button>
+      <button class="ib" id="t-more"><i class="ti ti-dots"></i></button>
+    </div>
+  </div>
+  <div id="msgs"></div>
+  <div id="compose">
+    <div id="mdrop"></div>
+    <div class="cbox">
+      <div class="ctb">
+        <button class="tb"><i class="ti ti-bold"></i></button>
+        <button class="tb" id="t-attach"><i class="ti ti-paperclip"></i></button>
+        <div class="tsep"></div>
+        <button class="agpill" id="t-agpill">
+          <div class="dot"><i class="ti ti-chart-line"></i></div>
+          Wealth Assistant
+          <i class="ti ti-chevron-down" style="font-size:10px;color:#aaa;margin-left:2px"></i>
+        </button>
+        <button class="gridpill" id="t-agall"><i class="ti ti-layout-grid"></i> All agents</button>
+      </div>
+      <div class="cinrow">
+        <textarea id="ci" placeholder="Ask anything, or type @ to mention a client or agent..." rows="1"></textarea>
+        <button id="sb"><i class="ti ti-send"></i></button>
+      </div>
+    </div>
+    <div class="disc">AI can make mistakes. Always verify before acting on behalf of a client.</div>
+  </div>
+</div>
+
+</div>
+
+<script>
+// ── PROMPT REGISTRY ───────────────────────────────────────────────────────────
+// All prompts live here — onclick handlers only reference IDs, never inline text.
+// This avoids all quote-escaping issues in HTML attributes.
+const P = {};
+let _pid = 0;
+function reg(prompt) {
+  const id = 'p' + (++_pid);
+  P[id] = prompt;
+  return id;
+}
+function run(id) {
+  const p = P[id];
+  if (p) send(p);
+}
+
+// ── STATIC PROMPTS ─────────────────────────────────────────────────────────────
+const PROMPTS = {
+  'p-prospect': 'New prospect referral just came in: David Park was referred by my client Linda Chen. He is VP of Product at CloudSoft in Boston with roughly $3.2M in net worth. 56% is concentrated in CloudSoft equity and RSUs. He has a $340K RSU vest coming in Q3, a 401k sitting idle at a former employer Apex Tech worth about $420K, and no estate plan. He emailed this morning saying he is looking for a change. Brief me on the full opportunity and tell me the exact first step I should take right now.',
+  'p-wire': 'URGENT: Patterson submitted a $250,000 wire transfer at 7:42am to First Republic Bank, account ending in 4471. That is a brand new destination he has never wired to before. His last wire was 14 months ago. He is 68 years old, retired, with $2.1M under management. Walk me through this wire request, tell me the compliance concerns, and what I should do right now.',
+  'p-market': 'Tech sector dropped 2.3% overnight. I have four clients with meaningful tech exposure: Goldstein at $1.4M AUM, Washington at $980K, Patel at $1.1M, and Nguyen at $2.2M. Give me a prioritized call list and a specific talking point for each client so I can get ahead of this before they call me.',
+  'p-service': 'Walk me through my open service requests this morning. What wires are pending, what account changes need my attention, and what documents are outstanding? Give me the full queue sorted by priority.',
+  'q-brief': 'Give me my complete morning briefing. Start with anything urgent that needs action today, then give me key client alerts, relevant market color, and my top three priorities for the day in order. Be specific with names and dollar amounts.',
+  'q-tlh': 'Run a tax loss harvesting analysis across my book of business. Identify the top candidates by opportunity size, show their unrealized loss amounts, recommend replacement securities to avoid wash-sale rules, and estimate the tax savings for each client.',
+  'q-health': 'Run a detailed practice health check. Show me AUM by client tier, net new assets year-to-date versus my goal, trailing 12-month GDC, client count by segment, and where I stand against my business plan scorecard targets.',
+  'q-mkbrief': 'Give me a morning market brief for client calls today. Cover S&P, Nasdaq, 10-year yield, VIX, key sector moves overnight, and the top three stories clients are most likely to ask me about.',
+  'q-engage': 'Which clients in my book have I not spoken to in 90 or more days? Give me a prioritized outreach list ranked by AUM at risk, with a specific conversation reason for each one tied to something meaningful in their portfolio or life situation.',
+  'q-life': 'Which clients have upcoming life events I should know about? Cover retirements, inheritances, RSU vests, RMDs, major milestones, or any significant life changes in the next 90 days, and tell me the right conversation to have with each.',
+  'q-rebal': 'Run a drift analysis across my book. Show me which clients have moved more than 5% from their target allocation, what the specific over and underweights are, and give me recommended trades with the right sequencing.',
+  'r-activity': 'Show me my activity feed this morning. What urgent alerts, client messages, or overnight items need my attention right away?',
+  'r-chat': 'Show me unread messages from clients or colleagues this morning. What needs a response today?',
+  'r-teams': 'What team meetings or branch calls do I have this week? Any prep I need to do?',
+  'r-calendar': 'Show me my calendar for today and tomorrow. What client meetings do I have, and what should I be preparing for each?',
+  'r-files': 'Show me recently accessed client documents — proposals, account applications, and planning reports I have been working on.',
+  'r-apps': 'Show me the full list of agents and skills available to me.',
+  'r-help': 'What help resources and guidance are available to me as an advisor using this platform?',
+  'r-settings': 'Show me my advisor profile and preference settings.',
+  't-search': 'I want to search my book. Who or what are you looking for? I can find clients by name, AUM, situation, or portfolio characteristic.',
+  't-more': 'Show me all items pending my action right now — wires, compliance sign-offs, client callbacks, and outstanding requests in priority order.',
+  't-attach': 'I want to share a document for review. What type of file — a client proposal, account application, or planning report?',
+};
+
+// ── CLIENTS for @mention ──────────────────────────────────────────────────────
+const CLIENTS = [
+  {i:'RP',c:'#5c2d91',n:'Patterson, R.',s:'$2.1M · Wire pending',
+   q:'Pull up Patterson and tell me everything about his account, the wire request this morning, and what I should do right now.'},
+  {i:'LC',c:'#107c41',n:'Chen, Linda',s:'$1.8M · Referred David Park',
+   q:'Show me Linda Chen full profile including her portfolio, recent activity, and how I should acknowledge her referral of David Park.'},
+  {i:'DP',c:'#6264A7',n:'Park, David',s:'Prospect · $3.2M NW',
+   q:'Tell me everything about David Park, the opportunity size, what I know about his financial situation, and my best next move today.'},
+  {i:'MG',c:'#0078d4',n:'Goldstein, M.',s:'$1.4M · TLH candidate',
+   q:'Pull up Goldstein. I want to review his tech exposure, unrealized losses, and the tax loss harvest opportunity after last night.'},
+  {i:'TW',c:'#d83b01',n:'Washington, T.',s:'$980K · Portfolio drift',
+   q:'Show me Washington portfolio drift and what rebalancing trades I should consider after last night\'s market move.'},
+  {i:'SP',c:'#038387',n:'Patel, S.',s:'$1.1M · RSU vest',
+   q:'Show me Patel. I want to talk about her concentrated stock position and how she should think about the recent tech selloff.'},
+  {i:'RN',c:'#c68a00',n:'Nguyen, R.',s:'$2.2M · RMD due Q3',
+   q:'Pull up Nguyen. Walk me through his RMD schedule, current allocation, and any year-end planning opportunities.'},
+  {i:'JK',c:'#005a9e',n:'Kim, J.',s:'$3.4M · Annual review due',
+   q:'Pull up Kim. His annual review is due. Give me a full picture of his situation before I call him.'},
+  {i:'EM',c:'#cc4a31',n:'Martinez, E.',s:'$760K · Risk review',
+   q:'Show me Martinez. I am concerned about a risk profile mismatch developing in her portfolio.'},
+];
+
+// ── AGENTS for @mention ───────────────────────────────────────────────────────
+const AGENT_REFS = [
+  {i:'ti-chart-line',c:'#6264A7',n:'Wealth Assistant',
+   q:'Give me a complete morning briefing with urgent items first, then opportunities, then today\'s top priorities.'},
+  {i:'ti-trending-up',c:'#5c2d91',n:'Investments Agent',
+   q:'Run a full investment review across my book including TLH candidates, concentrated positions, drift analysis, and fee-based conversion opportunities.'},
+  {i:'ti-user-circle',c:'#0078d4',n:'Client Profile Agent',
+   q:'I want to pull up a full client 360 view with household breakdown, holdings, open items, and next best actions.'},
+  {i:'ti-headset',c:'#107c41',n:'Servicing Agent',
+   q:'Show me all open service requests including wires, account changes, and outstanding documents sorted by priority.'},
+  {i:'ti-shield-check',c:'#c68a00',n:'Supervisory Agent',
+   q:'Run a supervisory review covering suitability flags, compliance alerts, and trade oversight across my book.'},
+  {i:'ti-news',c:'#cc4a31',n:'Market Intelligence',
+   q:'Give me this morning\'s market summary and tell me what I need to know for client calls today.'},
+  {i:'ti-map-2',c:'#005a9e',n:'Planning Agent',
+   q:'Show me planning opportunities including RMDs, retirement gaps, estate planning alerts, and year-end tax planning needs.'},
+  {i:'ti-target',c:'#d83b01',n:'Prospecting Agent',
+   q:'Show me my full prospect pipeline with stages, opportunity sizes, and next actions for each prospect.'},
+  {i:'ti-user-plus',c:'#038387',n:'Onboarding Agent',
+   q:'Show me the full onboarding pipeline with outstanding documents, ACAT transfer status, and compliance items.'},
+];
+
+// ── AGENT GRID DATA ───────────────────────────────────────────────────────────
+const GRID = [
+  {n:'Wealth Assistant',ic:'ti-chart-line',cl:'#6264A7',sk:[
+    {n:'Morning Briefing',p:'Give me my complete morning briefing. Start with urgent action items, then market color, then my top three client opportunities today. Use specific names and dollar amounts from my book.'},
+    {n:'Practice Health Check',p:'Run a detailed practice health check: show me AUM by client tier, net new assets year-to-date versus goal, trailing 12-month GDC, client retention rate, and how I am tracking against my business plan scorecard.'},
+    {n:'At-Risk Client Alerts',p:'Scan my book for at-risk clients. Flag anyone with a concentrated position, large unrealized loss, no contact in 90-plus days, upcoming life event, or suitability concern. Give me a ranked list with a specific action for each.'},
+    {n:'Book of Business Summary',p:'Give me a full book of business summary. Cover my top 15 clients by AUM, revenue concentration risk, client segment breakdown, and the three biggest opportunities sitting in my book right now.'},
+  ]},
+  {n:'Wealth Investments',ic:'ti-trending-up',cl:'#5c2d91',sk:[
+    {n:'Tax Loss Harvesting',p:'Run a tax loss harvesting analysis across my book. Identify the top candidates with unrealized loss amounts, recommend replacement securities to avoid wash-sale rules, and estimate the tax savings for each. Start with Goldstein, Washington, Nguyen, Patel, and Martinez.'},
+    {n:'Fee-based Conversion',p:'Which commission accounts in my book are candidates for fee-based conversion? Rank them by opportunity size, show the client breakeven analysis, and give me the conversation framework for each.'},
+    {n:'Portfolio Rebalancing',p:'Run a drift analysis across my book. Show me clients with more than 5% drift from target allocation, the specific asset class over and underweights, and the recommended rebalancing trades with proper sequencing.'},
+    {n:'Concentrated Stock Review',p:'Which clients have more than 20% of their net worth in a single stock or sector? Give me a ranked list with the risk profile for each and a recommended strategy — whether that is a collar, staged selling, a 10b5-1 plan, or an exchange fund.'},
+  ]},
+  {n:'Client Profile',ic:'ti-user-circle',cl:'#0078d4',sk:[
+    {n:'New Prospect Research',p:'Pull up the full research dossier on David Park. Cover his complete net worth breakdown, the CloudSoft RSU concentration analysis, the $340K Q3 vest tax exposure, the 401k rollover sizing from Apex Tech, the estate planning gap, and my single best angle for the first meeting.'},
+    {n:'Client 360 View',p:'I want a full 360 view on Kim J., my top client. Give me his household breakdown, current holdings summary, financial plan status, open service items, last contact date, and the best next action before his annual review.'},
+    {n:'Life Event Alerts',p:'Which clients have had recent or upcoming life events? Cover retirements, new jobs, inheritances, births, deaths, divorces, and home purchases in the last six months, and tell me the right outreach angle for each.'},
+    {n:'Low Engagement Clients',p:'Show me clients I have not spoken to in 90-plus days, ranked by AUM at risk. For each one, give me a specific outreach reason tied to something meaningful in their portfolio or personal situation.'},
+  ]},
+  {n:'Client Servicing',ic:'ti-headset',cl:'#107c41',sk:[
+    {n:'Wire Transfer Review',p:'Show me all pending wire transfer requests across my book requiring my review. Flag any new external accounts, amounts above client norms, long gaps since the last wire, or unusual patterns I should investigate before approving. Start with the Patterson wire.'},
+    {n:'Account Maintenance Queue',p:'What account maintenance items are pending right now? Cover address updates, beneficiary designations, titling changes, POA documents, and new account applications. Sort by aging and flag anything past five business days.'},
+    {n:'Open Service Tickets',p:'Give me a complete list of open service tickets across my book. Include ticket type, client name, days open, current status, and the specific next action I need to take on each. Flag anything past SLA.'},
+    {n:'Document and Form Status',p:'Which clients have outstanding document requirements? Cover unsigned applications, DocuSign envelopes pending, missing KYC, and overdue IPS reviews. Sort by days outstanding and suggest a follow-up approach for each.'},
+  ]},
+  {n:'Supervisory',ic:'ti-shield-check',cl:'#c68a00',sk:[
+    {n:'Suitability Review',p:'Run a full suitability review across my accounts. Flag any client positions or recent recommendations that do not match their risk profile, investment objective, or time horizon. Give me the specific clients and positions that need attention.'},
+    {n:'Compliance Flags',p:'Show me all open compliance flags, trade exceptions, regulatory alerts, and items requiring supervisory sign-off. Prioritize by severity and deadline, and tell me the exact action needed for each.'},
+    {n:'Trade Oversight',p:'Review trades placed across my accounts in the last 30 days. Flag any patterns of concern including excessive switching, mark-up issues, active trading in conservative accounts, or anything that could raise a supervisory red flag.'},
+    {n:'Supervision Activity Report',p:'Generate a supervision activity report for my branch manager. Cover transactions reviewed, client contacts logged, exceptions identified and resolved, and sign-offs completed this month. Format it for regulatory review.'},
+  ]},
+  {n:'Market Intelligence',ic:'ti-news',cl:'#cc4a31',sk:[
+    {n:'Morning Market Brief',p:'Give me a full morning market brief for client calls today. Cover S&P 500, Nasdaq, 10-year Treasury yield, VIX, major sector moves, and the three overnight news stories clients are most likely to bring up. Tell me how each one affects my specific clients.'},
+    {n:'Sector Watch',p:'Which sectors are showing significant moves today and which of my clients have meaningful exposure? For each notable sector, tell me the clients who are affected, the magnitude of the impact, and whether I should reach out proactively.'},
+    {n:'Client Call Talking Points',p:'Give me five strong market and economic talking points for client conversations this week. For each one give me the headline, two sentences of context, and a planning question I can use to deepen the relationship conversation.'},
+    {n:'Fixed Income Update',p:'Give me a fixed income market update. Cover 2-year, 5-year, 10-year, and 30-year yields, investment grade and high yield credit spread movements, muni market conditions, and what it all means for my clients in bond ladders or conservative income portfolios.'},
+  ]},
+  {n:'Planning and Goals',ic:'ti-map-2',cl:'#005a9e',sk:[
+    {n:'RMD Due Dates',p:'Which clients have required minimum distributions due in the next 90 days? Give me client name, account type, estimated RMD amount based on prior year-end balance, whether it has been taken yet, and what happens if it is missed.'},
+    {n:'Retirement Income Review',p:'Which clients are within five years of their target retirement date? For each one run a quick income gap analysis showing projected Social Security plus portfolio income versus their estimated spending need in retirement.'},
+    {n:'Year-End Tax Planning',p:'Identify clients with the biggest year-end tax planning opportunities. Cover TLH candidates, Roth conversion windows, charitable giving strategies, deferred comp elections coming due, and capital gains exposure to manage before December.'},
+    {n:'Estate Planning Alerts',p:'Which clients have estate planning gaps? Flag anyone with no will or trust, outdated beneficiary designations after a life event, a taxable estate without a plan in place, or who has not reviewed their estate documents in five-plus years.'},
+  ]},
+  {n:'Prospecting',ic:'ti-target',cl:'#d83b01',sk:[
+    {n:'Referral Opportunity Scan',p:'Scan my current book for the best referral opportunities. Which clients have high-net-worth family members, business partners, or colleagues I should be meeting? Who are my best centers of influence right now and how should I approach them?'},
+    {n:'Prospect Research',p:'Give me a complete prospect brief on David Park. Cover his CloudSoft stock concentration analysis, the RSU vest tax exposure in Q3, the 401k rollover sizing from Apex Tech, the estate planning gap, and my single best angle for the first meeting with him.'},
+    {n:'Pipeline Review',p:'Show me my full prospect pipeline. For every active prospect give me their stage, last touch date, estimated AUM opportunity, probability of converting, and the single most important next action I need to take.'},
+    {n:'Outreach Draft',p:'Draft a personalized warm outreach email from me to David Park. Reference Linda Chen\'s introduction naturally, show that I have done my homework on CloudSoft\'s RSU structure and the upcoming vest event, and make the ask for a 30-minute call feel low-pressure and genuine.'},
+  ]},
+  {n:'Client Onboarding',ic:'ti-user-plus',cl:'#038387',sk:[
+    {n:'Onboarding Checklist',p:'Start the onboarding workflow for David Park as a new client. Tell me what accounts we are opening, what documents are needed from him, what the compliance approval path looks like, and what I personally need to do in the first 48 hours.'},
+    {n:'ACAT Transfer Status',p:'Show me all ACAT transfers currently in process across my client base. Cover originating institution, account type, submission date, expected completion, and flag any that are aging past the standard five to seven business day window.'},
+    {n:'Document Collection',p:'Which clients in the onboarding pipeline have outstanding document requirements? Give me client name, the specific missing item, how many days it has been outstanding, and the best follow-up approach for each one.'},
+    {n:'Welcome Package',p:'Generate a personalized welcome letter for David Park as new client number 353. Reference his specific situation including the CloudSoft concentrated stock strategy as the first initiative, the Apex Tech 401k rollover, and estate planning coordination. Set a warm and professional tone that reflects a long-term relationship.'},
+  ]},
+];
+
+// ── SYSTEM PROMPT ─────────────────────────────────────────────────────────────
+const SYS = `You are the Wealth Assistant, a senior AI co-pilot for James Taylor (JT), a financial advisor at a full-service brokerage.
+
+JAMES'S BOOK: 18 years experience, 352 clients, approximately $2.4B AUM, Northeast US.
+
+CLIENT ROSTER:
+- David Park: PROSPECT. Age 38, VP of Product at CloudSoft Inc., Boston. Referred by Linda Chen. Net worth approximately $3.2M. CloudSoft equity/RSUs worth $1.8M (56% concentration, extreme single-stock risk). 401k at Apex Tech worth $420K (rollover opportunity, sitting in default funds). Self-managed Fidelity brokerage worth $280K (ACAT candidate). Married to Amy, 2 young children. No estate plan. Q3 2026 RSU vest: $340K, major tax event with no strategy. Said he is "looking for a change." Opportunity: fee-based wealth management plus concentrated stock diversification plus estate coordination plus 401k rollover.
+- Patterson, R.: Age 68, retired, $2.1M AUM, conservative. Wire request at 7:42am: $250K to First Republic Bank acct ending 4471, a new destination never used before. Last wire was 14 months ago for $175K.
+- Chen, Linda: $1.8M AUM, growth investor, referred David Park, 7-year client, strong relationship.
+- Goldstein, M.: $1.4M AUM, heavy tech exposure, unrealized loss approximately $84K in a tech ETF, prime TLH candidate.
+- Washington, T.: $980K AUM, balanced portfolio, 14% equity drift from target, TLH plus rebalancing opportunity.
+- Patel, S.: $1.1M AUM, recent RSU vest, concentrated stock, proactive call needed after tech selloff.
+- Nguyen, R.: $2.2M AUM, RMD due Q3 2026, conservative, IG bond fund has unrealized loss approximately $52K.
+- Martinez, E.: $760K AUM, conservative but risk profile mismatch developing.
+- Kim, J.: $3.4M AUM, top client, annual review due.
+- Okafor, B.: $890K AUM, RMD due Q3 2026.
+
+TODAY: Thursday, May 14, 2026, approximately 9am.
+
+YOUR ROLE: You are a knowledgeable colleague. Warm, direct, specific. Use real brokerage language: AUM, RSU, ACAT, TLH, wash-sale, suitability, concentrated position, fee-based, GDC, RMD, IPS, 10b5-1, collar strategy, direct indexing, basis points, trail.
+
+CRITICAL BEHAVIOR: When James takes an action like scheduling a meeting, drafting an email, approving a wire, or building a proposal, YOU simulate and show the complete output. Generate the actual email text, the actual meeting confirmation, the actual proposal summary. Make the output look real and complete. Show what was created. The goal is to demonstrate that AI compresses what normally takes hours into minutes.
+
+RESPONSE FORMAT - follow exactly:
+
+Keep prose to 2-3 sentences maximum. Then use format blocks below. Always end with [CHIPS].
+
+CHIPS (required on every single response):
+[CHIPS]Short label::Complete sentence James would say to continue||Label 2::Complete sentence||Label 3::Complete sentence[/CHIPS]
+Labels are 3-5 words. Prompts are complete natural sentences.
+
+ALERT:
+[ALERT:urgent]Bold headline||Detail text[/ALERT]
+[ALERT:info]Bold headline||Detail text[/ALERT]
+[ALERT:success]Bold headline||Detail text[/ALERT]
+
+PROGRESS (for multi-step workflows):
+[PROGRESS:Workflow Title]Step name:done:Result note||Step name:running:||Step name:waiting:[/PROGRESS]
+
+TABLE (use real data from the client roster above):
+[TABLE]{"title":"Title","cols":["Col1","Col2","Col3"],"rows":[["val","val","val"]]}[/TABLE]
+
+CARD (for emails, meeting confirmations, proposals, wire approvals, onboarding summaries):
+[CARD:icon|Source App|Title|Badge]
+FieldLabel :: Field Value
+FieldLabel :: Field Value
+---
+Longer body content goes here. For emails, write the complete email. For proposals, write the full summary. For confirmations, show all the details.
+---
+ACTION: Button label :: The complete sentence James would say if he clicked this button
+ACTION: Another button :: Another complete sentence
+[/CARD]
+
+Icon options: ti-mail, ti-calendar, ti-file-description, ti-send, ti-user-plus, ti-shield-check, ti-circle-check, ti-phone, ti-trending-up
+Badge options: DRAFT, SENT, CONFIRMED, APPROVED, GENERATED, PENDING, ON HOLD
+
+JOURNEY: The David Park prospect-to-client journey goes: Research and Brief, then Outreach Email or Call, then Meeting Scheduled, then Meeting Prep, then Proposal Built, then Proposal Sent, then Agreement Signed, then Onboarding Started, then Accounts Opened, then Client number 353. After each step, immediately surface the next step in CHIPS. Never leave a dead end.
+
+For the Patterson wire: options are Approve (show the system confirmation), Call to verify first (give the exact call script in a CARD), or Hold and escalate (generate a case reference number and next steps).
+
+Always be specific. Use real client names and real dollar amounts from the roster above.`;
+
+// ── STATE ──────────────────────────────────────────────────────────────────────
+let apiKey = '', history = [], loading = false, ec = 0;
+let mItems = [], mIdx = 0, mOpen = false;
+
+// ── BOOT ───────────────────────────────────────────────────────────────────────
+function boot() {
+  const k = document.getElementById('ki').value.trim();
+  if (!k) { document.getElementById('ki').style.borderColor = '#cc4a31'; return; }
+  apiKey = k;
+  document.getElementById('modal').classList.add('gone');
+  document.getElementById('tdate').textContent = new Date().toLocaleDateString('en-US', {weekday:'long',month:'long',day:'numeric'});
+  send(PROMPTS['p-prospect']);
+}
+
+// ── SEND ───────────────────────────────────────────────────────────────────────
+function send(prompt) {
+  if (loading) return;
+  addUser(prompt);
+  history.push({role:'user', content:prompt});
+  fetchAI();
+}
+
+async function fetchAI() {
+  const tid = showThink();
+  loading = true;
+  document.getElementById('sb').disabled = true;
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1500,
+        system: SYS,
+        messages: history,
+        stream: true
+      })
+    });
+    removeEl(tid);
+    if (!res.ok) {
+      let m = 'Could not reach Claude.';
+      try { const e = await res.json(); m = e.error?.message || m; if (res.status === 401) m = 'Invalid API key — please refresh and try again.'; } catch(e) {}
+      addBot(renderMd(m));
+      return;
+    }
+    let full = '', buf = '';
+    const reader = res.body.getReader(), dec = new TextDecoder();
+    while (true) {
+      const {done, value} = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, {stream:true});
+      const lines = buf.split('\n');
+      buf = lines.pop();
+      for (const l of lines) {
+        if (!l.startsWith('data: ')) continue;
+        const d = l.slice(6).trim();
+        if (!d || d === '[DONE]') continue;
+        try { const p = JSON.parse(d); if (p.type === 'content_block_delta' && p.delta?.type === 'text_delta') full += p.delta.text; } catch(e) {}
+      }
+    }
+    addBot(render(full));
+    history.push({role:'assistant', content:full});
+  } catch(err) {
+    removeEl(tid);
+    addBot(renderMd('Could not reach Claude. Check your API key and internet connection.'));
+    console.error(err);
+  } finally {
+    loading = false;
+    document.getElementById('sb').disabled = false;
+    scrollB();
+  }
+}
+
+// ── RENDER ─────────────────────────────────────────────────────────────────────
+function render(raw) {
+  let text = raw
+    .replace(/```(?:json)?\s*(\[(?:PROGRESS|TABLE|ALERT|CHIPS|CARD))/gi, '$1')
+    .replace(/(\[\/(?:PROGRESS|TABLE|ALERT|CHIPS|CARD)[^\]]*\])\s*```/gi, '$1');
+
+  const pats = [
+    {re:/\[CHIPS\]([\s\S]*?)\[\/CHIPS\]/gi,              t:'CHIPS'},
+    {re:/\[ALERT:(urgent|info|success)\]([\s\S]*?)\[\/ALERT\]/gi, t:'ALERT'},
+    {re:/\[PROGRESS:([^\]]+)\]([\s\S]*?)\[\/PROGRESS\]/gi,t:'PROGRESS'},
+    {re:/\[TABLE\]([\s\S]*?)\[\/TABLE\]/gi,              t:'TABLE'},
+    {re:/\[CARD:([^\]]+)\]([\s\S]*?)\[\/CARD\]/gi,       t:'CARD'},
+  ];
+  const blocks = [];
+  for (const p of pats) {
+    p.re.lastIndex = 0;
+    let m;
+    while ((m = p.re.exec(text)) !== null)
+      blocks.push({s:m.index, e:m.index+m[0].length, t:p.t, g:m.slice(1)});
+  }
+  blocks.sort((a,b) => a.s - b.s);
+  let html = '', pos = 0;
+  for (const b of blocks) {
+    if (b.s < pos) continue;
+    if (pos < b.s) { const c = text.slice(pos, b.s).trim(); if (c) html += renderMd(c); }
+    try {
+      if      (b.t === 'CHIPS')    html += rChips(b.g[0]);
+      else if (b.t === 'ALERT')    html += rAlert(b.g[0], b.g[1]);
+      else if (b.t === 'PROGRESS') html += rProg(b.g[0], b.g[1]);
+      else if (b.t === 'TABLE')    html += rTable(b.g[0]);
+      else if (b.t === 'CARD')     html += rCard(b.g[0], b.g[1]);
+    } catch(e) { console.warn(b.t, e); }
+    pos = b.e;
+  }
+  if (pos < text.length) { const c = text.slice(pos).trim(); if (c) html += renderMd(c); }
+  return html || renderMd(text);
+}
+
+function renderMd(t) {
+  return `<div class="bub ai">${marked.parse(t)}</div>`;
+}
+
+function rChips(raw) {
+  const chips = raw.trim().split('||').filter(Boolean).map(item => {
+    const idx = item.indexOf('::');
+    const lbl = idx < 0 ? item.trim() : item.slice(0, idx).trim();
+    const prm = idx < 0 ? item.trim() : item.slice(idx+2).trim();
+    const id = reg(prm);
+    return `<button class="chip" data-pid="${id}">${esc(lbl)}</button>`;
+  }).join('');
+  return `<div class="chips">${chips}</div>`;
+}
+
+function rAlert(type, raw) {
+  const sep = raw.indexOf('||');
+  const title = sep < 0 ? '' : raw.slice(0, sep).trim();
+  const body  = sep < 0 ? raw.trim() : raw.slice(sep+2).trim();
+  const icons = {urgent:'ti-alert-triangle', info:'ti-info-circle', success:'ti-circle-check'};
+  const cols  = {urgent:'#cc4a31', info:'#6264A7', success:'#2e7d32'};
+  const t = type || 'info';
+  return `<div class="alc ${t}"><i class="ti ${icons[t]||'ti-info-circle'}" style="color:${cols[t]||'#6264A7'}"></i><div>${title ? `<div class="alt">${esc(title)}</div>` : ''}<div class="alb">${esc(body)}</div></div></div>`;
+}
+
+function rProg(title, raw) {
+  const steps = raw.trim().split('||').filter(Boolean).map(s => {
+    const p = s.split(':');
+    return {l:p[0]?.trim()||'', st:p[1]?.trim()||'waiting', n:p[2]?.trim()||''};
+  });
+  const allDone = steps.every(s => s.st === 'done');
+  const badge = allDone
+    ? `<div class="pbdg done"><i class="ti ti-check" style="font-size:9px"></i> Complete</div>`
+    : `<div class="pbdg live"><div class="ldot"></div>Working...</div>`;
+  const sh = steps.map((s, i) => {
+    const last = i === steps.length - 1;
+    const ic = s.st === 'done'
+      ? `<i class="ti ti-check" style="font-size:10px"></i>`
+      : s.st === 'run'
+      ? `<i class="ti ti-loader-2 spin" style="font-size:10px"></i>`
+      : `<i class="ti ti-circle-dashed" style="font-size:10px"></i>`;
+    const sclass = s.st === 'done' ? 'done' : (s.st === 'run' ? 'run' : 'wait');
+    return `<div class="srow"><div class="scol"><div class="sic ${sclass}">${ic}</div>${!last ? `<div class="sln ${s.st==='done'?'done':'other'}"></div>` : ''}</div><div class="stxt"><div class="slbl ${s.st==='waiting'?'dim':''}">${esc(s.l)}</div>${s.n ? `<div class="snote ${s.st==='done'?'ok':''}">${esc(s.n)}</div>` : ''}</div></div>`;
+  }).join('');
+  return `<div class="pgcard"><div class="pghd"><span class="pgt">${esc(title)}</span>${badge}</div><div class="pgbd">${sh}</div></div>`;
+}
+
+function rTable(raw) {
+  try {
+    const d = JSON.parse(raw.trim());
+    const th = d.cols.map(c => `<th>${esc(c)}</th>`).join('');
+    const tb = d.rows.map(row => `<tr>${row.map(cell => {
+      const s = String(cell);
+      const cls = (s.startsWith('(') || s.match(/^-\$/)) ? 'cr' : s.startsWith('+') ? 'cg' : '';
+      return `<td${cls ? ` class="${cls}"` : ''}>${esc(s)}</td>`;
+    }).join('')}</tr>`).join('');
+    return `<div class="tcard">${d.title ? `<div class="thead">${esc(d.title)}</div>` : ''}<table><thead><tr>${th}</tr></thead><tbody>${tb}</tbody></table></div>`;
+  } catch(e) { return ''; }
+}
+
+function rCard(meta, body) {
+  const parts = meta.split('|');
+  const icon  = (parts[0]||'ti-file-description').trim();
+  const app   = (parts[1]||'').trim();
+  const title = (parts[2]||'').trim();
+  const badge = (parts[3]||'').trim();
+
+  const sections = body.split('---');
+  const fieldsRaw  = sections[0] || '';
+  const contentRaw = sections[1] || '';
+  const restRaw    = sections.slice(2).join('---') + '\n' + contentRaw;
+
+  const fields = fieldsRaw.trim().split('\n').filter(l => l.includes('::')).map(l => {
+    const idx = l.indexOf('::');
+    return {lbl: l.slice(0,idx).trim(), val: l.slice(idx+2).trim()};
+  });
+
+  const actions = [];
+  const allLines = restRaw.split('\n');
+  const bodyLines = allLines.filter(l => {
+    if (l.trim().startsWith('ACTION:')) {
+      const inner = l.replace(/^ACTION:/,'').trim();
+      const idx = inner.indexOf('::');
+      if (idx >= 0) actions.push({lbl: inner.slice(0,idx).trim(), prm: inner.slice(idx+2).trim()});
+      return false;
+    }
+    return true;
+  });
+  const content = bodyLines.join('\n').trim();
+
+  const badgeStyles = {
+    'DRAFT':     'background:#fff8f0;border:1px solid #fde2b8;color:#c68a00',
+    'SENT':      'background:#f1fdf4;border:1px solid #b8e6c4;color:#2e7d32',
+    'CONFIRMED': 'background:#f1fdf4;border:1px solid #b8e6c4;color:#2e7d32',
+    'APPROVED':  'background:#f1fdf4;border:1px solid #b8e6c4;color:#2e7d32',
+    'GENERATED': 'background:#f4f4ff;border:1px solid #d0d0f0;color:#6264A7',
+    'PENDING':   'background:#fff8f6;border:1px solid #f5c6bb;color:#cc4a31',
+    'ON HOLD':   'background:#fff8f6;border:1px solid #f5c6bb;color:#cc4a31',
+  };
+  const bstyle = badgeStyles[badge] || badgeStyles['DRAFT'];
+
+  const fieldsHtml = fields.length
+    ? `<div class="${fields.length > 2 ? 'fgrid' : 'fgrid single'}" style="margin-bottom:${content?'12px':'0'}">${fields.map(f => `<div class="frow"><label>${esc(f.lbl)}</label><div class="v">${esc(f.val)}</div></div>`).join('')}</div>`
+    : '';
+
+  const contentHtml = content ? `<div class="emailbody">${esc(content)}</div>` : '';
+
+  const actionsHtml = actions.map(a => {
+    const id = reg(a.prm);
+    return `<button class="glink" data-pid="${id}">${esc(a.lbl)}</button>`;
+  }).join('');
+
+  return `<div class="gcard">
+<div class="gchead">
+  <i class="ti ${esc(icon)}" style="color:#6264A7"></i>
+  <div style="flex:1">
+    ${app ? `<span class="gcapp">${esc(app)}</span>` : ''}
+    <div class="gctitle">${esc(title)}</div>
+  </div>
+  ${badge ? `<span class="gcbadge" style="${bstyle}">${esc(badge)}</span>` : ''}
+</div>
+<div class="gcbody">
+  ${fieldsHtml}
+  ${contentHtml}
+</div>
+${actionsHtml ? `<div class="gcfoot">${actionsHtml}</div>` : ''}
+</div>`;
+}
+
+// ── DOM HELPERS ────────────────────────────────────────────────────────────────
+function addUser(t) {
+  const row = mk('div','row u');
+  row.innerHTML = `<div class="av u">JT</div><div class="mc u"><div class="bub me">${esc(t)}</div></div>`;
+  document.getElementById('msgs').appendChild(row);
+  scrollB();
+}
+function showThink() {
+  const id = 'e'+(++ec), row = mk('div','row');
+  row.id = id;
+  row.innerHTML = `<div class="av"><i class="ti ti-chart-line" style="font-size:14px"></i></div><div class="mc"><div class="thk"><div class="dots"><span></span><span></span><span></span></div><span style="font-size:12px;color:#6264A7;font-weight:500">Working...</span></div></div>`;
+  document.getElementById('msgs').appendChild(row);
+  scrollB();
+  return id;
+}
+function addBot(html) {
+  const row = mk('div','row');
+  row.innerHTML = `<div class="av"><i class="ti ti-chart-line" style="font-size:14px"></i></div><div class="mc">${html}</div>`;
+  document.getElementById('msgs').appendChild(row);
+  scrollB();
+}
+function removeEl(id) { const e = document.getElementById(id); if (e) e.remove(); }
+function mk(tag,cls) { const e = document.createElement(tag); if (cls) e.className=cls; return e; }
+function esc(s) { const d = document.createElement('div'); d.textContent = String(s||''); return d.innerHTML; }
+function scrollB() { const m = document.getElementById('msgs'); requestAnimationFrame(()=>{ m.scrollTop = m.scrollHeight; }); }
+
+// ── AGENTS GRID ────────────────────────────────────────────────────────────────
+function showGrid() {
+  const cards = GRID.map(a => {
+    const skills = a.sk.map(s => {
+      const id = reg(s.p);
+      return `<button class="sk" data-pid="${id}">${esc(s.n)}</button>`;
+    }).join('');
+    return `<div class="agc"><div class="agch" style="background:${a.cl}"><i class="ti ${a.ic}"></i><span>${esc(a.n)}</span></div><div class="agcb">${skills}</div></div>`;
+  }).join('');
+  const row = mk('div','row');
+  row.innerHTML = `<div class="av" style="background:#555"><i class="ti ti-layout-grid" style="font-size:14px"></i></div><div class="mc full"><div class="agintro"><i class="ti ti-layout-grid"></i> All Agents &amp; Skills &mdash; every tile sends a live request to Claude</div><div class="aggrid">${cards}</div></div>`;
+  document.getElementById('msgs').appendChild(row);
+  scrollB();
+}
+
+// ── @MENTION ───────────────────────────────────────────────────────────────────
+function buildMention(filter) {
+  const f = filter.toLowerCase();
+  const clients = CLIENTS.filter(c => c.n.toLowerCase().includes(f) || c.s.toLowerCase().includes(f));
+  const agents  = AGENT_REFS.filter(a => a.n.toLowerCase().includes(f));
+  mItems = [];
+  let html = '';
+  if (clients.length) {
+    html += `<div class="msec">Clients</div>`;
+    clients.forEach(c => {
+      mItems.push({action: () => send(c.q)});
+      html += `<div class="mi" data-midx="${mItems.length-1}"><div class="mav" style="background:${c.c}">${c.i}</div><div><div class="mn">${c.n}</div><div class="ms">${c.s}</div></div></div>`;
+    });
+  }
+  if (agents.length) {
+    html += `<div class="msec">Agents</div>`;
+    agents.forEach(a => {
+      mItems.push({action: () => send(a.q)});
+      html += `<div class="mi" data-midx="${mItems.length-1}"><div class="mav ag" style="background:${a.c}"><i class="ti ${a.i}" style="font-size:12px;color:#fff"></i></div><div><div class="mn">${a.n}</div><div class="ms">${a.q.slice(0,45)}...</div></div></div>`;
+    });
+  }
+  const drop = document.getElementById('mdrop');
+  drop.innerHTML = html || '';
+  const show = !!(clients.length || agents.length);
+  drop.classList.toggle('show', show);
+  mOpen = show;
+  mIdx = 0;
+}
+function hideM() {
+  document.getElementById('mdrop').classList.remove('show');
+  mOpen = false; mItems = []; mIdx = 0;
+}
+function pickM(idx) {
+  const item = mItems[idx];
+  if (!item) return;
+  const ci = document.getElementById('ci');
+  ci.value = ci.value.replace(/@\S*$/, '');
+  hideM();
+  item.action();
+}
+
+// ── EVENT DELEGATION (all clicks go through here — no inline JS) ───────────────
+document.addEventListener('click', function(e) {
+  // Prompt registry buttons (chips, card actions, skill buttons)
+  const pidEl = e.target.closest('[data-pid]');
+  if (pidEl) { run(pidEl.dataset.pid); return; }
+
+  // Static prompt buttons (panel, rail, topbar)
+  const spEl = e.target.closest('[id]');
+  if (spEl && PROMPTS[spEl.id]) { send(PROMPTS[spEl.id]); return; }
+
+  // Grid button
+  if (e.target.closest('#q-grid') || e.target.closest('#t-grid') || e.target.closest('#t-agpill') || e.target.closest('#t-agall') || e.target.closest('#r-apps')) {
+    showGrid(); return;
+  }
+
+  // @mention items
+  const mi = e.target.closest('.mi[data-midx]');
+  if (mi) { pickM(parseInt(mi.dataset.midx)); return; }
+
+  // Outside compose -> hide mention
+  if (!e.target.closest('#compose')) hideM();
+});
+
+// ── COMPOSE INPUT ──────────────────────────────────────────────────────────────
+const ci = document.getElementById('ci');
+ci.addEventListener('input', function() {
+  this.style.height = 'auto';
+  this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+  const m = this.value.match(/@(\S*)$/);
+  if (m) buildMention(m[1]); else hideM();
+});
+ci.addEventListener('keydown', function(e) {
+  if (mOpen) {
+    const items = document.querySelectorAll('.mi[data-midx]');
+    if (e.key === 'ArrowDown') { e.preventDefault(); mIdx = Math.min(mIdx+1, mItems.length-1); items.forEach((el,i) => el.classList.toggle('on', i===mIdx)); return; }
+    if (e.key === 'ArrowUp')   { e.preventDefault(); mIdx = Math.max(mIdx-1, 0);              items.forEach((el,i) => el.classList.toggle('on', i===mIdx)); return; }
+    if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); pickM(mIdx); return; }
+    if (e.key === 'Escape') { hideM(); return; }
+  }
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
+});
+
+document.getElementById('sb').addEventListener('click', handleSend);
+document.getElementById('startbtn').addEventListener('click', boot);
+document.getElementById('ki').addEventListener('keydown', e => { if (e.key === 'Enter') boot(); });
+document.getElementById('ki').addEventListener('input', function() { this.style.borderColor = ''; });
+
+function handleSend() {
+  const t = ci.value.trim();
+  if (!t || loading) return;
+  hideM();
+  ci.value = '';
+  ci.style.height = 'auto';
+  send(t);
+}
+
+window.addEventListener('load', () => {
+  document.getElementById('ki').focus();
+  if (typeof marked !== 'undefined') marked.setOptions({breaks:true, gfm:true});
+});
+</script>
+</body>
+</html>
