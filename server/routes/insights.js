@@ -1,6 +1,6 @@
 // server/routes/insights.js
 // Lightweight in-memory insights store.
-// External agents (email agent, wire-transfer agent, etc.) POST here.
+// External assistants (email assistant, wire-transfer assistant, etc.) POST here.
 // Frontend GETs here to display the badge count and list.
 //
 // POST /api/insights  { title, body, severity, agentSource, clientId? }
@@ -17,7 +17,7 @@ let insights = [
     title: "Wire transfer intent detected",
     body: "Email from Anderson, Robert mentions an upcoming wire of $250K. Review before close of business.",
     severity: "high",
-    agentSource: "Email Agent",
+    agentSource: "Email Assistant",
     clientId: "c-001",
     createdAt: new Date(Date.now() - 12 * 60000).toISOString(),
     read: false,
@@ -44,9 +44,9 @@ router.get("/count", (req, res) => {
   res.json({ total: insights.length, unread: insights.filter(i => !i.read).length });
 });
 
-// POST /api/insights  — external agents call this
+// POST /api/insights  — external assistants call this
 router.post("/", (req, res) => {
-  const { title, body, severity = "info", agentSource = "Unknown Agent", clientId = null } = req.body;
+  const { title, body, severity = "info", agentSource = "Unknown Source", clientId = null } = req.body;
   if (!title || !body) return res.status(400).json({ error: "title and body are required" });
 
   const insight = {

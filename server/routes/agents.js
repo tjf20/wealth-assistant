@@ -13,7 +13,7 @@ router.get("/", (req, res) => {
 // Returns a specific level of the hierarchy (e.g. "root", "sub-ag-01", "prompts-101")
 router.get("/:key", (req, res) => {
   const { key } = req.params;
-  if (!AGENT_META[key]) return res.status(404).json({ error: `Agent key "${key}" not found` });
+  if (!AGENT_META[key]) return res.status(404).json({ error: `Assistant key "${key}" not found` });
   res.json(AGENT_META[key]);
 });
 
@@ -23,13 +23,13 @@ router.post("/:id/run", async (req, res) => {
   const { id } = req.params;
   const { clientId, accountIds, params } = req.body;
 
-  console.log(`[RUN] Agent: ${id} | Client: ${clientId || "all"} | Params:`, params);
+  console.log(`[RUN] Assistant: ${id} | Client: ${clientId || "all"} | Params:`, params);
 
-  // TODO: Replace this stub with your actual agent execution call.
+  // TODO: Replace this stub with your actual assistant execution call.
   // Options:
-  //   - Call Anthropic API with a pre-built system prompt for this agent
-  //   - Trigger a Salesforce AgentForce flow
-  //   - Call your internal data services (CF Agent, Finder Agent, etc.)
+  //   - Call Anthropic API with a pre-built system prompt for this assistant
+  //   - Trigger a Salesforce Agentforce flow
+  //   - Call your internal data services (CF Assistant, Finder Assistant, etc.)
 
   // For now, return a job receipt so the frontend can poll for status
   const jobId = `job-${Date.now()}`;
@@ -38,7 +38,7 @@ router.post("/:id/run", async (req, res) => {
     agentId: id,
     status: "queued",
     startedAt: new Date().toISOString(),
-    message: `Agent ${id} queued successfully. Poll /api/activity/${jobId} for status.`,
+    message: `Assistant ${id} queued successfully. Poll /api/activity/${jobId} for status.`,
   });
 });
 
