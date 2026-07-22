@@ -24,10 +24,21 @@ jobs:
           node-version: '22.x'
 
       - name: npm install, build, and test
+        shell: pwsh
         run: |
+          $ErrorActionPreference = "Stop"
+
           npm install
+          if ($LASTEXITCODE -ne 0) { throw "npm install (root) failed with exit code $LASTEXITCODE" }
+
+          npm install --prefix client
+          if ($LASTEXITCODE -ne 0) { throw "npm install (client) failed with exit code $LASTEXITCODE" }
+
           npm run build --if-present
+          if ($LASTEXITCODE -ne 0) { throw "npm run build failed with exit code $LASTEXITCODE" }
+
           npm run test --if-present
+          if ($LASTEXITCODE -ne 0) { throw "npm run test failed with exit code $LASTEXITCODE" }
       
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
