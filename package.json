@@ -1,6 +1,6 @@
 {
   "name": "wealth-assistant",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Wealth Assistant – Agentic AI Dashboard for Financial Advisors",
   "private": true,
   "scripts": {
