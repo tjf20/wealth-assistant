@@ -5,6 +5,8 @@
 import { useState } from "react";
 import { X, Download, FileText, TrendingUp, TrendingDown, Star, ArrowRight, CheckCircle, AlertTriangle, Clock, DollarSign, Users, BarChart2, Zap, Mail } from "lucide-react";
 import { useTheme } from "../theme.js";
+import CewLink from "./CewLink.jsx";
+import { resolveTarget } from "../data/cewTargets.js";
 
 // ── SVG helpers ───────────────────────────────────────────────────────────────
 function Sparkline({ data, color="#2dbe8a", width=100, height=32 }) {
@@ -316,7 +318,12 @@ export default function ReportViewer({ report, onClose, onPin }) {
                   <button style={{ padding:"6px 12px", background:"transparent", color:"#8a8fa8", border:"1px solid #1e2029", borderRadius:6, fontSize:11, cursor:"pointer", fontFamily:"inherit" }} onClick={()=>{navigator.clipboard.writeText(report.emailDraft.body);setCopiedEmail(true);setTimeout(()=>setCopiedEmail(false),1500);}}>
                     {copiedEmail?"Copied!":"Copy text"}
                   </button>
-                  <button style={{ padding:"6px 12px", background:"transparent", color:"#8a8fa8", border:"1px solid #1e2029", borderRadius:6, fontSize:11, cursor:"pointer", fontFamily:"inherit" }}>Log to Salesforce</button>
+                  <CewLink
+                    target={resolveTarget("salesforceLogActivity", { id: report.subject })}
+                    style={{ padding:"6px 12px", background:"transparent", color:"#8a8fa8", border:"1px solid #1e2029", borderRadius:6, fontSize:11 }}
+                  >
+                    Log to Salesforce
+                  </CewLink>
                 </div>
               </div>
             </div>
