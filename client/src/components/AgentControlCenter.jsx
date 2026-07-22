@@ -21,7 +21,7 @@ function fmtAUM(accounts) {
   return t>=1e9?`$${(t/1e9).toFixed(2)}B`:t>=1e6?`$${(t/1e6).toFixed(1)}M`:`$${(t/1e3).toFixed(0)}K`;
 }
 
-// ── Scope badge ───────────────────────────────────────────────────────────────────
+// ── Scope badge ──────────────────────────────────────────────────────────────────
 function ScopeBadge({ scope }) {
   const C = useTheme();
   const book = <span key="b" style={{ fontSize:9,padding:"2px 6px",borderRadius:8,fontWeight:600,background:C.accentBg,color:C.accent,border:`1px solid ${C.accentBorder}`,display:"inline-flex",alignItems:"center",gap:3 }}><Briefcase size={8}/>Book</span>;
@@ -32,7 +32,7 @@ function ScopeBadge({ scope }) {
   return null;
 }
 
-// ── Agent Detail drill-down (scope + client picker) ────────────────────────────────
+// ── Agent Detail drill-down (scope + client picker) ────────────────────────────────────────────────────────────
 function AgentDetail({ agent, workstationClient, onBack, onRun, onSchedule }) {
   const C = useTheme();
   const [scope,   setScope]   = useState(agent.scope==="individual"?"individual":"book");
@@ -144,7 +144,7 @@ function AgentDetail({ agent, workstationClient, onBack, onRun, onSchedule }) {
   );
 }
 
-// ── Schedule form ───────────────────────────────────────────────────────────────────
+// ── Schedule form ───────────────────────────────────────────────────────────────────────────
 function ScheduleForm({ agent, onConfirm, onCancel }) {
   const C = useTheme();
   const [scope,setScope]=useState(agent.scope==="individual"?"individual":"book");
@@ -182,7 +182,7 @@ function ScheduleForm({ agent, onConfirm, onCancel }) {
   );
 }
 
-// ── Agent card ───────────────────────────────────────────────────────────────────
+// ── Agent card ───────────────────────────────────────────────────────────────────────────
 function AgentCard({ agent, isRunning, isScheduled, onRunOrDrillDown, onSchedule }) {
   const C = useTheme();
   const needsDrillDown = agent.scope==="individual" || agent.scope==="both";
@@ -216,7 +216,7 @@ function AgentCard({ agent, isRunning, isScheduled, onRunOrDrillDown, onSchedule
   );
 }
 
-// ── Activity row ──────────────────────────────────────────────────────────────────
+// ── Activity row ─────────────────────────────────────────────────────────────────────────────────
 function ActivityRow({ job, onViewReport, onDelete }) {
   const C = useTheme();
   const S = {
@@ -256,7 +256,7 @@ function ActivityRow({ job, onViewReport, onDelete }) {
   );
 }
 
-// ── Reports panel ──────────────────────────────────────────────────────────────────
+// ── Reports panel ─────────────────────────────────────────────────────────────────────────────────
 function ReportsPanel({ reports, onView }) {
   const C = useTheme();
   if (!reports?.length) return <div style={{ padding:"40px 0",textAlign:"center",fontSize:13,color:C.textDim }}>No results yet. Run an Assistant to generate one.</div>;
@@ -292,7 +292,7 @@ function ReportsPanel({ reports, onView }) {
 }
 
 // ── Main ─────────────────────────────────────────────────────────────────────────────────
-export default function AgentControlCenter({ agentData, liveJobs=[], reports, onDeleteReport, workstationClient, onViewReport, getReportContent, initialTab }) {
+export default function AgentControlCenter({ agentData, liveJobs=[], reports, onDeleteReport, workstationClient, onViewReport, getReportContent, initialTab, onRunAgent }) {
   const C = useTheme();
   const [tab,          setTab]         = useState(initialTab || "agents");
   const [scopeFilter,  setScope]       = useState("all");
@@ -328,10 +328,13 @@ export default function AgentControlCenter({ agentData, liveJobs=[], reports, on
     setRunning(p=>({...p,[agent.id]:true}));
     setDrillAgent(null);
     setTab("activity");
-    showToast(`${agent.name} is running — see Activity tab`);
+    // Hand off to the parent, which creates a real job (shows on Progress) and,
+    // after it finishes, saves a report (shows on Results). Without this, Configure & Run
+    // was purely a local animation that never produced anything durable.
+    if (onRunAgent) onRunAgent(agent, opts);
+    showToast(`${agent.name} is running — see Progress tab`);
     setTimeout(()=>{
       setRunning(p=>{const n={...p};delete n[agent.id];return n;});
-      showToast(`${agent.name} complete`);
     },3500);
   }
 

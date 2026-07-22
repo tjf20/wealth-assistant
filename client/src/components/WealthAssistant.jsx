@@ -5,6 +5,8 @@
 //   • Extended CSS vars include hero card (fixes green-on-green in light theme)
 //   • All "Project Center" → "Custom Workspace", internal "Project" → "Workspace"
 //   • Chat collapse button added to topbar
+//   • handleAgentRun: Configure & Run in Command Center now creates a real job (Progress)
+//     and, on completion, saves a report (Results) — same pipeline as My Clients "Run Assistant"
 
 import { useState, useRef, useEffect } from "react";
 import { Home, Bell, Sun, Moon, X, Send, Zap, Layers, Bot, Users, Settings, ChevronDown, PanelRightClose } from "lucide-react";
@@ -47,7 +49,7 @@ function getNBA(ins) {
   return NBA_MAP.find(r => r.keywords.some(k => txt.includes(k)));
 }
 
-// ── Insights drawer ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+// ── Insights drawer ──────────────────────────────────────────────────────────────────────────────────────────────────────────────
 function InsightsDrawer({ open, onClose, onRunAgent, C }) {
   const [insights, setInsights] = useState([]);
   const [nbaDrop, setNbaDrop]   = useState(null);
@@ -108,7 +110,7 @@ function InsightsDrawer({ open, onClose, onRunAgent, C }) {
   );
 }
 
-// ── CSS var builder — includes hero card vars ────────────────────────────────────────────────────
+// ── CSS var builder — includes hero card vars ───────────────────────────────────────────────────
 function buildCSSVars(isDark) {
   if (isDark) return `
     --c-bg:#0a0b0d;--c-surface:#0f1014;--c-surface2:#13151e;--c-surface3:#181a22;
@@ -138,7 +140,7 @@ function buildCSSVars(isDark) {
   `;
 }
 
-// ── Main ─────────────────────────────────────────────────────────────────────────────────────────────────────────
+// ── Main ────────────────────────────────────────────────────────────────────────────────────────────────────
 export default function WealthAssistant({ agentData }) {
   const advisorName = "James Miller";
 
@@ -197,7 +199,7 @@ export default function WealthAssistant({ agentData }) {
     poll(); const id = setInterval(poll, 30000); return ()=>clearInterval(id);
   }, []);
 
-  // ── Run agent for selected clients ──────────────────────────────────────────────────
+  // ── Run agent for selected clients ────────────────────────────────────────────────────────
   function handleClientsRunAgent(clients, agentId, agentName) {
     const resolved = agentName || findAgentName(agentData, agentId);
     const newJobs  = clients.map(c => ({
@@ -229,7 +231,40 @@ export default function WealthAssistant({ agentData }) {
     }, 3500);
   }
 
-  // ── Pin to Home ───────────────────────────────────────────────────────────────
+  // ── Run agent from Command Center (book-scope run, or individual after drill-down) ──
+  function handleAgentRun(agent, opts = {}) {
+    const resolved = agent.name || findAgentName(agentData, agent.id);
+    const scope = opts.scope || (agent.scope === "individual" ? "individual" : "book");
+
+    // Individual scope with a chosen client — reuse the same job/report pipeline as My Clients
+    if (scope === "individual" && opts.client) {
+      handleClientsRunAgent([opts.client], agent.id, resolved);
+      return;
+    }
+
+    // Book-of-business run — single job, no client attached
+    const job = {
+      jobId: `job-${Date.now()}-book`,
+      agentId: agent.id, agentName: resolved,
+      clientName: null, clientId: null,
+      scope: "book", status: "running",
+      startedAt: new Date().toISOString(),
+    };
+    setLiveJobs(prev => [job, ...prev]);
+    showToast(`${resolved} running for your book of business`);
+
+    setTimeout(() => {
+      setLiveJobs(prev => prev.map(j =>
+        j.jobId === job.jobId ? { ...j, status:"done", completedAt:new Date().toISOString() } : j
+      ));
+      const content = generateReportContent(agent.id, resolved, null, "book");
+      const saved = saveReport(`${resolved} — Book of Business`, content, null);
+      if (saved && saved.id) storeReportContent(saved.id, content);
+      showToast(`${resolved} complete — view results in Results`);
+    }, 3500);
+  }
+
+  // ── Pin to Home ───────────────────────────────────────────────────────────────────
   function handlePinToHome(report) {
     const entry = {
       id: `pin-${Date.now()}`,
@@ -253,7 +288,7 @@ export default function WealthAssistant({ agentData }) {
     localStorage.setItem(PINNED_KEY, JSON.stringify(next));
   }
 
-  // ── Insights NBA run ───────────────────────────────────────────────────────────────
+  // ── Insights NBA run ─────────────────────────────────────────────────────────────
   function handleInsightRun(agent, insight) {
     handleClientsRunAgent([CLIENTS[0]], agent.id, agent.name);
     setInsightsOpen(false);
@@ -373,6 +408,7 @@ export default function WealthAssistant({ agentData }) {
                     onViewReport={r=>setViewingReport(r)}
                     getReportContent={getReportContent}
                     initialTab={accInitialTab}
+                    onRunAgent={handleAgentRun}
                   />
                 )}
 
