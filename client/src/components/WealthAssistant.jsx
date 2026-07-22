@@ -1,16 +1,20 @@
 // client/src/components/WealthAssistant.jsx
-// v6 changes:
+// v7 changes:
+//   • Insights is now the sole landing workspace — replaces the old "Home" canvas
+//     and the small bell-icon Insights drawer entirely (see InsightsHome.jsx)
 //   • reportContentMap: stores full generateReportContent() objects so Reports tab can open viewer
-//   • pinnedReports: "Pin to Home" actually works — reports appear in MyCanvasView Add Card
+//   • pinnedReports: "Pin to Insights" — reports appear in the Insights "Pinned Results" strip
 //   • Extended CSS vars include hero card (fixes green-on-green in light theme)
 //   • All "Project Center" → "Custom Workspace", internal "Project" → "Workspace"
 //   • Chat collapse button added to topbar
+//   • handleAgentRun: Configure & Run in Command Center creates a real job (Progress)
+//     and, on completion, saves a report (Results) — same pipeline as My Clients "Run Assistant"
 
 import { useState, useRef, useEffect } from "react";
-import { Home, Bell, Sun, Moon, X, Send, Zap, Layers, Bot, Users, Settings, ChevronDown, PanelRightClose } from "lucide-react";
+import { Home, Sun, Moon, Zap, Layers, Bot, Users, Settings, PanelRightClose, Lightbulb } from "lucide-react";
 
 import { ThemeContext, DARK, LIGHT } from "../theme.js";
-import MyCanvasView       from "./MyCanvasView.jsx";
+import InsightsHome       from "./InsightsHome.jsx";
 import MyClientsView      from "./MyClientsView.jsx";
 import ProjectCenterView  from "./ProjectCenterView.jsx";
 import ProjectDetailView  from "./ProjectDetailView.jsx";
@@ -35,80 +39,7 @@ function findAgentName(agentData, agentId) {
   return agentId;
 }
 
-const NBA_MAP = [
-  { keywords:["wire","transfer","servicing"], agentId:"sub-wire", label:"Servicing Agent — Send Wire" },
-  { keywords:["esg","interest","fund"],       agentId:"sub-602",  label:"Product Recommendations" },
-  { keywords:["at-risk","withdrawal","gap"],  agentId:"sub-203",  label:"At-Risk Client Alerts" },
-  { keywords:["review","annual","fact"],      agentId:"sub-106",  label:"Annual Review Prep" },
-  { keywords:["tax","harvest","loss"],        agentId:"sub-101",  label:"Tax Loss Harvesting" },
-];
-function getNBA(ins) {
-  const txt = `${ins.title} ${ins.body}`.toLowerCase();
-  return NBA_MAP.find(r => r.keywords.some(k => txt.includes(k)));
-}
-
-// ── Insights drawer ───────────────────────────────────────────────────────────
-function InsightsDrawer({ open, onClose, onRunAgent, C }) {
-  const [insights, setInsights] = useState([]);
-  const [nbaDrop, setNbaDrop]   = useState(null);
-  useEffect(() => {
-    if (!open) return;
-    fetch("/api/insights").then(r=>r.json()).then(setInsights).catch(()=>{});
-  }, [open]);
-  if (!open) return null;
-  const sevColor = { high:C.danger, info:C.accent, low:C.textDim };
-  return (
-    <div style={{ position:"absolute", left:210, top:0, bottom:0, width:360, background:C.surface, borderRight:`1px solid ${C.border}`, zIndex:30, display:"flex", flexDirection:"column", boxShadow:"4px 0 24px rgba(0,0,0,0.25)" }}>
-      <div style={{ padding:"14px 16px", borderBottom:`1px solid ${C.border}`, display:"flex", alignItems:"center", justifyContent:"space-between", flexShrink:0 }}>
-        <span style={{ fontSize:14, fontWeight:700, color:C.text }}>Insights</span>
-        <button onClick={onClose} style={{ background:"none", border:"none", cursor:"pointer", color:C.textDim }}><X size={16}/></button>
-      </div>
-      <div style={{ flex:1, overflowY:"auto", padding:12, display:"flex", flexDirection:"column", gap:10 }}>
-        {insights.map(ins => {
-          const nba = getNBA(ins);
-          return (
-            <div key={ins.id} style={{ background:C.surface2, border:`1px solid ${C.border}`, borderLeft:`3px solid ${sevColor[ins.severity]||C.textDim}`, borderRadius:"0 8px 8px 0", padding:12 }}>
-              <div style={{ fontSize:12, fontWeight:600, color:C.text, marginBottom:4 }}>{ins.title}</div>
-              <div style={{ fontSize:11, color:C.textDim, lineHeight:1.6, marginBottom:6 }}>{ins.body}</div>
-              <div style={{ fontSize:10, color:C.textHint, marginBottom:nba?8:0 }}>via {ins.agentSource} · {new Date(ins.createdAt).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}</div>
-              {nba && (
-                <div style={{ borderTop:`1px solid ${C.border}`, paddingTop:8, marginTop:4 }}>
-                  <div style={{ fontSize:10, fontWeight:700, color:C.textDim, letterSpacing:".07em", textTransform:"uppercase", marginBottom:6 }}>Next Best Action</div>
-                  <div style={{ position:"relative" }}>
-                    <button onClick={()=>setNbaDrop(nbaDrop===ins.id?null:ins.id)}
-                      style={{ display:"flex", alignItems:"center", gap:6, padding:"6px 10px", background:C.accentBg, color:C.accent, border:`1px solid ${C.accentBorder}`, borderRadius:7, fontSize:11, fontWeight:600, cursor:"pointer", fontFamily:"inherit", width:"100%" }}>
-                      <Bot size={12}/><span style={{flex:1,textAlign:"left"}}>{nba.label}</span><ChevronDown size={11}/>
-                    </button>
-                    {nbaDrop===ins.id && (
-                      <div style={{ position:"absolute", top:"100%", left:0, right:0, zIndex:50, background:C.surface, border:`1px solid ${C.border}`, borderRadius:8, overflow:"hidden", marginTop:4, boxShadow:"0 8px 24px rgba(0,0,0,0.2)" }}>
-                        {[
-                          {id:nba.agentId, name:nba.label},
-                          {id:"sub-701",   name:"CRM Sync & Log"},
-                          {id:"sub-105",   name:"Client Outreach Draft"},
-                        ].map(a=>(
-                          <div key={a.id} onClick={()=>{onRunAgent(a,ins);setNbaDrop(null);onClose();}}
-                            style={{ padding:"9px 12px", cursor:"pointer", fontSize:12, color:C.text, display:"flex", alignItems:"center", gap:8, borderBottom:`1px solid ${C.border}` }}
-                            onMouseEnter={e=>e.currentTarget.style.background=C.accentBg}
-                            onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-                            <Bot size={13} color={C.accent}/><span style={{flex:1}}>{a.name}</span>
-                            <span style={{ fontSize:10, color:C.accent, fontWeight:600 }}>Run Now →</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })}
-        {!insights.length && <div style={{ textAlign:"center", fontSize:13, color:C.textDim, padding:"40px 0" }}>No insights yet.</div>}
-      </div>
-    </div>
-  );
-}
-
-// ── CSS var builder — includes hero card vars ─────────────────────────────────
+// ── CSS var builder — includes hero card vars ───────────────────────────────────────────────────
 function buildCSSVars(isDark) {
   if (isDark) return `
     --c-bg:#0a0b0d;--c-surface:#0f1014;--c-surface2:#13151e;--c-surface3:#181a22;
@@ -138,15 +69,14 @@ function buildCSSVars(isDark) {
   `;
 }
 
-// ── Main ─────────────────────────────────────────────────────────────────────
+// ── Main ────────────────────────────────────────────────────────────────────────────────────────────────────
 export default function WealthAssistant({ agentData }) {
   const advisorName = "James Miller";
 
-  const [navView,          setNavView]       = useState("canvas");
+  const [navView,          setNavView]       = useState("insights");
   const [theme,            setTheme]         = useState("dark");
   const [chatCollapsed,    setChatCollapsed] = useState(false);
   const [insightCount,     setInsightCount]  = useState(2);
-  const [insightsOpen,     setInsightsOpen]  = useState(false);
   const [activeProject,    setActiveProject] = useState(null);
   const [workstationClient,setWsClient]      = useState(null);
   const [toast,            setToast]         = useState(null);
@@ -154,7 +84,7 @@ export default function WealthAssistant({ agentData }) {
   const [viewingReport,    setViewingReport] = useState(null);
   const [accInitialTab,    setAccInitialTab] = useState("agents"); // forces ACC to a specific tab
 
-  // pinnedReports: reports the FA has pinned to show on Home as cards
+  // pinnedReports: reports the FA has pinned to show in Insights' "Pinned Results" strip
   const [pinnedReports, setPinnedReports] = useState(() => {
     try { return JSON.parse(localStorage.getItem(PINNED_KEY) || "[]"); } catch { return []; }
   });
@@ -197,7 +127,7 @@ export default function WealthAssistant({ agentData }) {
     poll(); const id = setInterval(poll, 30000); return ()=>clearInterval(id);
   }, []);
 
-  // ── Run agent for selected clients ────────────────────────────────────────
+  // ── Run agent for selected clients ────────────────────────────────────────────────────────
   function handleClientsRunAgent(clients, agentId, agentName) {
     const resolved = agentName || findAgentName(agentData, agentId);
     const newJobs  = clients.map(c => ({
@@ -229,7 +159,40 @@ export default function WealthAssistant({ agentData }) {
     }, 3500);
   }
 
-  // ── Pin to Home ───────────────────────────────────────────────────────────
+  // ── Run agent from Command Center (book-scope run, or individual after drill-down) ──
+  function handleAgentRun(agent, opts = {}) {
+    const resolved = agent.name || findAgentName(agentData, agent.id);
+    const scope = opts.scope || (agent.scope === "individual" ? "individual" : "book");
+
+    // Individual scope with a chosen client — reuse the same job/report pipeline as My Clients
+    if (scope === "individual" && opts.client) {
+      handleClientsRunAgent([opts.client], agent.id, resolved);
+      return;
+    }
+
+    // Book-of-business run — single job, no client attached
+    const job = {
+      jobId: `job-${Date.now()}-book`,
+      agentId: agent.id, agentName: resolved,
+      clientName: null, clientId: null,
+      scope: "book", status: "running",
+      startedAt: new Date().toISOString(),
+    };
+    setLiveJobs(prev => [job, ...prev]);
+    showToast(`${resolved} running for your book of business`);
+
+    setTimeout(() => {
+      setLiveJobs(prev => prev.map(j =>
+        j.jobId === job.jobId ? { ...j, status:"done", completedAt:new Date().toISOString() } : j
+      ));
+      const content = generateReportContent(agent.id, resolved, null, "book");
+      const saved = saveReport(`${resolved} — Book of Business`, content, null);
+      if (saved && saved.id) storeReportContent(saved.id, content);
+      showToast(`${resolved} complete — view results in Results`);
+    }, 3500);
+  }
+
+  // ── Pin to Insights ───────────────────────────────────────────────────────────────────
   function handlePinToHome(report) {
     const entry = {
       id: `pin-${Date.now()}`,
@@ -238,13 +201,13 @@ export default function WealthAssistant({ agentData }) {
       summary: report.summary || "",
       agentName: report.agentName || "",
       generatedAt: report.generatedAt || new Date().toLocaleString(),
-      // Store the full content inline so MyCanvasView can open it
+      // Store the full content inline so InsightsHome can open it
       content: report,
     };
     const next = [entry, ...pinnedReports].slice(0, 6); // max 6 pinned cards
     setPinnedReports(next);
     localStorage.setItem(PINNED_KEY, JSON.stringify(next));
-    showToast("Report pinned — find it in Home → Add Card → Pinned Reports");
+    showToast("Report pinned — find it in Insights → Pinned Results");
   }
 
   function handleUnpinReport(pinId) {
@@ -253,21 +216,15 @@ export default function WealthAssistant({ agentData }) {
     localStorage.setItem(PINNED_KEY, JSON.stringify(next));
   }
 
-  // ── Insights NBA run ──────────────────────────────────────────────────────
-  function handleInsightRun(agent, insight) {
-    handleClientsRunAgent([CLIENTS[0]], agent.id, agent.name);
-    setInsightsOpen(false);
-  }
-
   const breadcrumbs = {
-    canvas:"Home", agents:"Agent Control Center",
+    insights:"Insights", agents:"Command Center",
     projectCenter:"Custom Workspace", projectDetail:activeProject?.name??"Custom Workspace",
     clients:"My Clients",
   };
 
   const navItems = [
-    { icon:Home,     label:"Home",                 view:"canvas"       },
-    { icon:Bot,      label:"Agent Control Center", view:"agents",       badge:liveJobs.filter(j=>j.status==="running").length||null },
+    { icon:Lightbulb,label:"Insights",             view:"insights",     badge:insightCount||null },
+    { icon:Bot,      label:"Command Center",       view:"agents",       badge:liveJobs.filter(j=>j.status==="running").length||null },
     { icon:Layers,   label:"Custom Workspace",     view:"projectCenter",badge:projects.length||null },
     { icon:Users,    label:"My Clients",           view:"clients"      },
     { icon:Settings, label:"Settings",             view:null           },
@@ -305,14 +262,6 @@ export default function WealthAssistant({ agentData }) {
                 </div>
               ))}
             </div>
-            <div style={{ padding:"0 8px 4px" }}>
-              <div onClick={()=>setInsightsOpen(true)} style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 10px", borderRadius:7, cursor:"pointer", color:C.navTxt, transition:"all 0.15s" }}
-                onMouseEnter={e=>e.currentTarget.style.background=C.navHover}
-                onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-                <Bell size={14}/><span style={{fontSize:13}}>Insights</span>
-                {insightCount>0&&<span style={{ marginLeft:"auto", background:"#DC2626", color:"#fff", fontSize:9, fontWeight:700, padding:"1px 6px", borderRadius:8 }}>{insightCount}</span>}
-              </div>
-            </div>
             <div style={{ padding:"12px 8px", borderTop:"1px solid rgba(255,255,255,0.08)" }}>
               <div style={{ display:"flex", alignItems:"center", gap:8, padding:"8px 10px", borderRadius:7, background:"rgba(255,255,255,0.05)" }}>
                 <div style={{ width:28, height:28, borderRadius:"50%", background:"#1a3a6a", display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, fontWeight:700, color:"#7db8ff", flexShrink:0 }}>JM</div>
@@ -327,7 +276,7 @@ export default function WealthAssistant({ agentData }) {
             {/* Topbar */}
             <div style={{ height:52, borderBottom:`1px solid ${C.border}`, display:"flex", alignItems:"center", padding:"0 20px", gap:12, background:C.topbar, flexShrink:0 }}>
               <div style={{ display:"flex", alignItems:"center", gap:6, fontSize:13, flex:1 }}>
-                <Home size={13} style={{ cursor:"pointer", color:C.textDim }} onClick={()=>setNavView("canvas")}/>
+                <Home size={13} style={{ cursor:"pointer", color:C.textDim }} onClick={()=>setNavView("insights")}/>
                 <span style={{color:C.textDim}}>›</span>
                 <span style={{ color:C.text, fontWeight:500 }}>{breadcrumbs[navView]||navView}</span>
                 {navView==="projectDetail"&&activeProject&&(
@@ -354,9 +303,12 @@ export default function WealthAssistant({ agentData }) {
             <div style={{ flex:1, display:"flex", overflow:"hidden" }}>
               <div style={{ flex:1, overflow:"hidden", display:"flex", flexDirection:"column", position:"relative" }}>
 
-                {navView==="canvas" && (
-                  <MyCanvasView
-                    onNavigate={()=>setNavView("agents")}
+                {navView==="insights" && (
+                  <InsightsHome
+                    agentData={agentData}
+                    allClients={CLIENTS}
+                    onRunAgent={handleAgentRun}
+                    onSetWorkstationClient={(client)=>{setWsClient(client);showToast(`${client.name} synced to Wealth Chat`);}}
                     pinnedReports={pinnedReports}
                     onViewReport={r=>setViewingReport(r)}
                     onUnpinReport={handleUnpinReport}
@@ -373,6 +325,7 @@ export default function WealthAssistant({ agentData }) {
                     onViewReport={r=>setViewingReport(r)}
                     getReportContent={getReportContent}
                     initialTab={accInitialTab}
+                    onRunAgent={handleAgentRun}
                   />
                 )}
 
@@ -427,8 +380,6 @@ export default function WealthAssistant({ agentData }) {
               />
             </div>
           </div>
-
-          {insightsOpen && <InsightsDrawer open={insightsOpen} onClose={()=>setInsightsOpen(false)} onRunAgent={handleInsightRun} C={C}/>}
 
           {viewingReport && (
             <ReportViewer

@@ -1,7 +1,7 @@
 // client/src/components/WealthChatPanel.jsx
 // Faithful React port of the WMA chat UI.
-// Panels: Chat | Prompt Library | Agents | Memory | Attachments | Settings
-// @mention chips in contentEditable input, agent progress cards, memory extraction.
+// Panels: Chat | Prompt Library | Assistants | Memory | Attachments | Settings
+// @mention chips in contentEditable input, Assistant progress cards, memory extraction.
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useTheme } from "../theme.js";
@@ -9,7 +9,7 @@ import clientsData from "../data/clients.json";
 
 const CLIENTS_DATA = Array.isArray(clientsData) ? clientsData : [];
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ── Helpers ─────────────────────────────────────────────────────────────────────────────────
 function fmtAUM(accounts) {
   const t = (Array.isArray(accounts) ? accounts : []).reduce((s, a) => s + (a.netValue || 0), 0);
   return t >= 1e9 ? `$${(t/1e9).toFixed(2)}B` : t >= 1e6 ? `$${(t/1e6).toFixed(1)}M` : `$${(t/1e3).toFixed(0)}K`;
@@ -49,7 +49,7 @@ function md2html(md) {
   return h;
 }
 
-// ── Data ──────────────────────────────────────────────────────────────────────
+// ── Data ──────────────────────────────────────────────────────────────────────────────────────────
 const MENTION_CLIENTS = CLIENTS_DATA.slice(0, 100).map(c => ({
   id: c.clientId, name: c.name, type: "client",
   sub: `${c.type} · ${Array.isArray(c.accounts)?c.accounts.length:0} accts · ${fmtAUM(c.accounts)}`,
@@ -113,7 +113,7 @@ const BUILTIN_PROMPTS = [
   { cat:"Compliance",         title:"Suitability review",       prompt:"Review the portfolio for suitability given the client's stated risk tolerance, time horizon, and investment objectives." },
 ];
 
-// ── SVG Icons (matching WMA rail) ─────────────────────────────────────────────
+// ── SVG Icons (matching WMA rail) ────────────────────────────────────────────────────────────────
 const ICO = {
   logo:    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>,
   chat:    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>,
@@ -132,7 +132,7 @@ const ICO = {
   finder:  <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"/><path d="M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>,
 };
 
-// ── Main component ────────────────────────────────────────────────────────────
+// ── Main component ──────────────────────────────────────────────────────────────────────────────────
 export default function WealthChatPanel({
   advisorName, navView, agentData,
   workstationClient, onClearWorkstation,
@@ -173,7 +173,7 @@ export default function WealthChatPanel({
   function saveMemFacts(facts) { setMemFacts(facts); localStorage.setItem("wa_memory", JSON.stringify(facts)); }
   function saveCustomPrompts(prompts) { setCustomPrompts(prompts); localStorage.setItem("wa_custom", JSON.stringify(prompts)); }
 
-  // ── Input handling ───────────────────────────────────────────────────────────
+  // ── Input handling ────────────────────────────────────────────────────────────────────────
   function extractInputContent() {
     const ce = inputRef.current;
     if (!ce) return { text:"", displayHtml:"", tokens:[] };
@@ -224,7 +224,7 @@ export default function WealthChatPanel({
     const ce = inputRef.current;
     const next = textNode.nextSibling;
     ce.insertBefore(chip, next || null);
-    const sp = document.createTextNode("\u00A0"); ce.insertBefore(sp, chip.nextSibling || null);
+    const sp = document.createTextNode(" "); ce.insertBefore(sp, chip.nextSibling || null);
     const r = document.createRange(); r.setStart(sp, 1); r.collapse(true);
     sel.removeAllRanges(); sel.addRange(r);
     setMentionData(null);
@@ -240,7 +240,7 @@ export default function WealthChatPanel({
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
   }
 
-  // ── API call ─────────────────────────────────────────────────────────────────
+  // ── API call ──────────────────────────────────────────────────────────────────────────────
   async function apiChat(messages, system, maxTokens = 2048) {
     const res = await fetch("/api/chat", {
       method: "POST",
@@ -254,7 +254,7 @@ export default function WealthChatPanel({
     throw new Error(data.error || "Unknown error");
   }
 
-  // ── Send message ──────────────────────────────────────────────────────────────
+  // ── Send message ───────────────────────────────────────────────────────────────────────────
   async function sendMessage() {
     const ce = inputRef.current;
     const { text, displayHtml, tokens } = extractInputContent();
@@ -287,7 +287,7 @@ export default function WealthChatPanel({
       if (settings.memory) localStorage.setItem("wa_history", JSON.stringify(updatedHistory.slice(-60)));
       if (settings.autoextract && updatedHistory.length % 8 === 0) autoExtractMemory(updatedHistory, true);
     } catch (err) {
-      addMsg("ai", `<p><strong>Error:</strong> ${esc(err.message)}. Check that your server is running and ANTHROPIC_API_KEY is set in .env</p>`);
+      addMsg("ai", `<p><strong>Something went wrong:</strong> ${esc(err.message)}. Check that your server is running and ANTHROPIC_API_KEY is set in .env</p>`);
     } finally { setLoading(false); }
   }
 
@@ -295,7 +295,7 @@ export default function WealthChatPanel({
     setMsgs(prev => [...prev, { role, html, ts: fmtTime() }]);
   }
 
-  // ── Run agent ────────────────────────────────────────────────────────────────
+  // ── Run agent ──────────────────────────────────────────────────────────────────────────────────
   async function runAgent(key) {
     const agent = AGENTS_DEF[key]; if (!agent) return;
     setPanel("chat");
@@ -314,11 +314,11 @@ export default function WealthChatPanel({
     } catch (err) {
       clearInterval(timer);
       setProgCard(null);
-      addMsg("ai", `<p><strong>Agent error:</strong> ${esc(err.message)}</p>`);
+      addMsg("ai", `<p><strong>Assistant error:</strong> ${esc(err.message)}</p>`);
     }
   }
 
-  // ── Memory extraction ────────────────────────────────────────────────────────
+  // ── Memory extraction ────────────────────────────────────────────────────────────────────────
   async function autoExtractMemory(hist, silent = false) {
     if (!hist.length) return;
     const recent = hist.slice(-16).map(m => `${m.role}: ${typeof m.content==="string"?m.content:"[complex]"}`).join("\n");
@@ -363,7 +363,7 @@ export default function WealthChatPanel({
     }, 50);
   }, [panel]);
 
-  // ── CSS: WMA design adapted for light/dark ────────────────────────────────────
+  // ── CSS: WMA design adapted for light/dark ─────────────────────────────────────────────────────────
   const css = `
     .wma-wrap{display:flex;height:100%;overflow:hidden;font-family:'Inter',system-ui,sans-serif;font-size:13px;line-height:1.5;color:${isDark?"#eceef5":"#1a1f2e"};background:${isDark?"#0f1014":"#f8f9fb"}}
     .wma-rail{width:46px;min-width:46px;background:${isDark?"#0f1014":"#fff"};border-right:1px solid ${isDark?"#1e2029":"#e2e5ec"};display:flex;flex-direction:column;align-items:center;padding:8px 0;gap:2px;z-index:20}
@@ -521,7 +521,7 @@ export default function WealthChatPanel({
     .wma-note{font-size:11.5px;background:${isDark?"rgba(22,163,74,.1)":"#f0fdf4"};border:1px solid #86efac;border-radius:5px;padding:8px 10px;line-height:1.6;margin-bottom:8px;color:${isDark?"#2dbe8a":"#16a34a"}}
   `;
 
-  // ── Collapsed state ───────────────────────────────────────────────────────────
+  // ── Collapsed state ────────────────────────────────────────────────────────────────────────────────────
   if (collapsed) return (
     <>
       <style>{css}</style>
@@ -556,7 +556,7 @@ export default function WealthChatPanel({
           {[
             { id:"chat",        label:"Chat",           icon:ICO.chat    },
             { id:"library",     label:"Prompt Library", icon:ICO.lib     },
-            { id:"agents",      label:"Agents",         icon:ICO.agents  },
+            { id:"agents",      label:"Assistants",     icon:ICO.agents  },
             { id:"memory",      label:"Memory",         icon:ICO.mem     },
             { id:"attachments", label:"Attachments",    icon:ICO.attach  },
           ].map(r => (
@@ -611,7 +611,7 @@ export default function WealthChatPanel({
                         <div className="wma-acard">
                           <div className="wma-achdr">
                             <span className="wma-atitle">{m.title}</span>
-                            <span className="wma-abadge">Agent result</span>
+                            <span className="wma-abadge">Result</span>
                           </div>
                           <div className="wma-abody">
                             <div dangerouslySetInnerHTML={{__html: m.html}}/>
@@ -680,11 +680,11 @@ export default function WealthChatPanel({
                 <div ref={msgsEndRef}/>
               </div>
 
-              {/* Agent tray */}
+              {/* Assistant tray */}
               <div className={`wma-tray ${trayOpen?"open":"closed"}`}>
                 <div className="wma-tray-hdr" onClick={()=>setTrayOpen(o=>!o)}>
                   {ICO.agents}
-                  <span className="wma-tray-lbl">Quick Agents</span>
+                  <span className="wma-tray-lbl">Quick Assistants</span>
                   <span style={{marginLeft:"auto",fontSize:9,color:isDark?"#8a8fa8":"#9ca3af"}}>{trayOpen?"▼":"▲"}</span>
                 </div>
                 <div className="wma-tray-agents">
@@ -702,7 +702,7 @@ export default function WealthChatPanel({
                 {/* Mention popup */}
                 {mentionData && (
                   <div className="wma-mention-popup">
-                    {[{label:"Clients",items:mentionData.items.filter(i=>i.type==="client")},{label:"Accounts",items:mentionData.items.filter(i=>i.type==="account")},{label:"Agents",items:mentionData.items.filter(i=>i.type==="agent")}].filter(s=>s.items.length>0).map(sec => (
+                    {[{label:"Clients",items:mentionData.items.filter(i=>i.type==="client")},{label:"Accounts",items:mentionData.items.filter(i=>i.type==="account")},{label:"Assistants",items:mentionData.items.filter(i=>i.type==="agent")}].filter(s=>s.items.length>0).map(sec => (
                       <div key={sec.label}>
                         <div className="wma-mp-sec">{sec.label}</div>
                         {sec.items.map(item => (
@@ -744,7 +744,7 @@ export default function WealthChatPanel({
                     className="wma-ce"
                     contentEditable
                     suppressContentEditableWarning
-                    data-ph="Ask anything… or type @ to mention clients, accounts, or agents"
+                    data-ph="Ask anything… or type @ to mention clients, accounts, or assistants"
                     onInput={handleCEInput}
                     onKeyDown={handleCEKeydown}
                     onPaste={e=>{ e.preventDefault(); document.execCommand("insertText",false,e.clipboardData.getData("text/plain")); }}
@@ -790,10 +790,10 @@ export default function WealthChatPanel({
             </div>
           )}
 
-          {/* ── AGENTS ── */}
+          {/* ── ASSISTANTS ── */}
           {panel === "agents" && (
             <div className="wma-panel">
-              <div className="wma-phdr">{ICO.agents}<h2>Agents</h2></div>
+              <div className="wma-phdr">{ICO.agents}<h2>Assistants</h2></div>
               <div className="wma-wrap-scroll">
                 {Object.entries(AGENTS_DEF).map(([k,a]) => (
                   <div key={k} className="wma-afc">
@@ -803,7 +803,7 @@ export default function WealthChatPanel({
                     </div>
                     <div className="wma-afc-desc">{a.desc}</div>
                     <button className="wma-run-btn" disabled={!!progCard||loading} onClick={()=>runAgent(k)}>
-                      {ICO.run}Run Agent
+                      {ICO.run}Run Assistant
                     </button>
                   </div>
                 ))}

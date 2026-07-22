@@ -43,7 +43,7 @@ function fmtTime(iso) {
   return new Date(iso).toLocaleTimeString([], { hour:"2-digit", minute:"2-digit" });
 }
 
-// ── Status badge ──────────────────────────────────────────────────────────────
+// ── Status badge ──────────────────────────────────────────────────────────────────────────────────────────
 function StatusBadge({ status }) {
   const map = {
     running: { bg:C.blueBg,   border:C.blueBorder,   color:C.blue,   label:"● Running"  },
@@ -55,7 +55,7 @@ function StatusBadge({ status }) {
   return <span style={{ fontSize:10, fontWeight:700, padding:"2px 8px", borderRadius:4, background:s.bg, color:s.color, border:`1px solid ${s.border}`, whiteSpace:"nowrap" }}>{s.label}</span>;
 }
 
-// ── Add Client Modal ──────────────────────────────────────────────────────────
+// ── Add Client Modal ────────────────────────────────────────────────────────────────────────────────────────
 function AddClientModal({ open, allClients, existingIds, onAdd, onClose }) {
   const [q, setQ] = useState("");
   if (!open) return null;
@@ -97,7 +97,7 @@ function AddClientModal({ open, allClients, existingIds, onAdd, onClose }) {
   );
 }
 
-// ── Select Agent Modal ────────────────────────────────────────────────────────
+// ── Select Agent Modal ──────────────────────────────────────────────────────────────────────────────────────────────────
 function SelectAgentModal({ open, onRun, onClose }) {
   const [agents, setAgents]   = useState([]);
   const [loading, setLoading] = useState(false);
@@ -126,11 +126,11 @@ function SelectAgentModal({ open, onRun, onClose }) {
     <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.65)", zIndex:50, display:"flex", alignItems:"center", justifyContent:"center" }}>
       <div style={{ background:C.surface, border:`1px solid ${C.border2}`, borderRadius:12, padding:24, width:520, maxHeight:"75vh", display:"flex", flexDirection:"column", boxShadow:"0 24px 48px rgba(0,0,0,0.6)" }}>
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:14 }}>
-          <div style={{ fontSize:15, fontWeight:700, color:C.text }}>Select Agent to Run</div>
+          <div style={{ fontSize:15, fontWeight:700, color:C.text }}>Select an Assistant to Run</div>
           <button onClick={onClose} style={{ background:"none", border:"none", cursor:"pointer", color:C.textMuted }}><X size={16}/></button>
         </div>
         <div style={{ flex:1, overflowY:"auto", display:"flex", flexDirection:"column", gap:8 }}>
-          {loading && <div style={{ textAlign:"center", fontSize:13, color:C.textDim, padding:"24px 0" }}>Loading agents…</div>}
+          {loading && <div style={{ textAlign:"center", fontSize:13, color:C.textDim, padding:"24px 0" }}>Loading assistants…</div>}
           {!loading && agents.map(a=>(
             <div key={a.id} style={{ display:"flex", alignItems:"center", gap:12, padding:"11px 14px", background:C.surface2, border:`1px solid ${C.border}`, borderRadius:9, cursor:"pointer" }}
               onMouseEnter={e=>{e.currentTarget.style.borderColor=C.blue;}}
@@ -157,7 +157,7 @@ function SelectAgentModal({ open, onRun, onClose }) {
   );
 }
 
-// ── Save to Reports Modal ─────────────────────────────────────────────────────
+// ── Save to Reports Modal ─────────────────────────────────────────────────────────────────────────────────────────────────
 function SaveReportModal({ open, result, projectName, onSave, onClose }) {
   const [name, setName] = useState("");
   function handleSave() { if (name.trim()) { onSave(name.trim(), result); setName(""); onClose(); } }
@@ -189,7 +189,7 @@ function SaveReportModal({ open, result, projectName, onSave, onClose }) {
   );
 }
 
-// ── Main ─────────────────────────────────────────────────────────────────────
+// ── Main ─────────────────────────────────────────────────────────────────────────────────
 export default function ProjectDetailView({
   project, allClients, onBack,
   onAddClients, onRemoveClient,
@@ -284,7 +284,7 @@ export default function ProjectDetailView({
         </div>
         <button onClick={()=>setAgentModalOpen(true)}
           style={{ display:"flex", alignItems:"center", gap:6, padding:"7px 14px", borderRadius:7, border:`1px solid ${C.blueBorder}`, background:C.blueBg, color:C.blue, fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:"inherit" }}>
-          <Play size={12}/>Select Agent
+          <Play size={12}/>Select Assistant
         </button>
       </div>
 
@@ -359,7 +359,7 @@ export default function ProjectDetailView({
           </div>
           <div style={{ flex:1, overflowY:"auto" }}>
             {!(project.results||[]).length
-              ? <div style={{ padding:"14px 12px", fontSize:11, color:C.textDim, lineHeight:1.6 }}>No results yet.<br/>Click "Select Agent" to run.</div>
+              ? <div style={{ padding:"14px 12px", fontSize:11, color:C.textDim, lineHeight:1.6 }}>No results yet.<br/>Click "Select Assistant" to run.</div>
               : (project.results||[]).map(result=>{
                   const active = selectedResultId===result.id;
                   return (
@@ -504,7 +504,7 @@ export default function ProjectDetailView({
                     </div>
                     <button onClick={()=>handleReRun(selectedResult)}
                       style={{ display:"flex", alignItems:"center", gap:5, fontSize:11, color:C.textDim, background:"none", border:"none", cursor:"pointer", fontFamily:"inherit" }}>
-                      <RotateCcw size={11}/>Re-run this agent
+                      <RotateCcw size={11}/>Re-run this Assistant
                     </button>
                   </div>
                 )}

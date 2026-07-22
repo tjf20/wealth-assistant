@@ -20,25 +20,25 @@ const AGENT_META = {
       subs: "sub-ag-02", runnable: false,
     },
     {
-      id: "ag-03", name: "Investment Agent", type: "agent",
+      id: "ag-03", name: "Investment Assistant", type: "agent",
       icon: "TrendingUp", color: "blue", scope: "both",
       desc: "Portfolio analysis, allocation modeling & rebalancing recommendations",
       subs: "sub-ag-03", runnable: false,
     },
     {
-      id: "ag-04", name: "Wealth Planning Agent", type: "agent",
+      id: "ag-04", name: "Wealth Planning Assistant", type: "agent",
       icon: "Map", color: "purple", scope: "individual",
       desc: "Retirement, estate, education & tax planning workflows",
       subs: "sub-ag-04", runnable: false,
     },
     {
-      id: "ag-05", name: "Client Acquisition Agent", type: "agent",
+      id: "ag-05", name: "Client Acquisition Assistant", type: "agent",
       icon: "UserPlus", color: "teal", scope: "book",
       desc: "Prospect scoring, outreach drafts & referral opportunity surfacing",
       subs: "sub-ag-05", runnable: false,
     },
     {
-      id: "ag-06", name: "Client Deepening Agent", type: "agent",
+      id: "ag-06", name: "Client Deepening Assistant", type: "agent",
       icon: "Gift", color: "coral", scope: "both",
       desc: "Opportunities, product recommendations & relationship insights",
       subs: "sub-ag-06", runnable: false,
@@ -73,10 +73,10 @@ const AGENT_META = {
   ],
 
   "prompts-101": [
-    { id: "p1", type: "prompt", label: "Step 1", instruction: "Search for @client, using the @agent." },
-    { id: "p2", type: "prompt", label: "Step 2", instruction: "Get the latest Realized Gain/Loss information from the CF Agent." },
-    { id: "p3", type: "prompt", label: "Step 3", instruction: "Get the latest Holdings including tax lots information from the CF Agent." },
-    { id: "p4", type: "prompt", label: "Step 4", instruction: "Send the output of steps 2 and 3 to the Investment Agent." },
+    { id: "p1", type: "prompt", label: "Step 1", instruction: "Search for @client, using the @assistant." },
+    { id: "p2", type: "prompt", label: "Step 2", instruction: "Get the latest Realized Gain/Loss information from the CF Assistant." },
+    { id: "p3", type: "prompt", label: "Step 3", instruction: "Get the latest Holdings including tax lots information from the CF Assistant." },
+    { id: "p4", type: "prompt", label: "Step 4", instruction: "Send the output of steps 2 and 3 to the Investment Assistant." },
     { id: "p5", type: "prompt", label: "Step 5", instruction: "Publish the results to my @activity." },
   ],
 
