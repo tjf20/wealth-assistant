@@ -8,7 +8,7 @@ import { useState, useEffect } from "react";
 import {
   Play, Calendar, Pause, Clock, CheckCircle, Download, FileText,
   RotateCcw, Briefcase, Users, ArrowLeft, Search, ExternalLink,
-  Trash2, RefreshCw, X,
+  Trash2, RefreshCw, X, ChevronRight,
 } from "lucide-react";
 import { useTheme } from "../theme.js";
 import { generateReportContent } from "./ReportViewer.jsx";
@@ -21,7 +21,7 @@ function fmtAUM(accounts) {
   return t>=1e9?`$${(t/1e9).toFixed(2)}B`:t>=1e6?`$${(t/1e6).toFixed(1)}M`:`$${(t/1e3).toFixed(0)}K`;
 }
 
-// ── Scope badge ───────────────────────────────────────────────────────────────
+// ── Scope badge ───────────────────────────────────────────────────────────────────
 function ScopeBadge({ scope }) {
   const C = useTheme();
   const book = <span key="b" style={{ fontSize:9,padding:"2px 6px",borderRadius:8,fontWeight:600,background:C.accentBg,color:C.accent,border:`1px solid ${C.accentBorder}`,display:"inline-flex",alignItems:"center",gap:3 }}><Briefcase size={8}/>Book</span>;
@@ -32,7 +32,7 @@ function ScopeBadge({ scope }) {
   return null;
 }
 
-// ── Agent Detail drill-down (scope + client picker) ───────────────────────────
+// ── Agent Detail drill-down (scope + client picker) ────────────────────────────────
 function AgentDetail({ agent, workstationClient, onBack, onRun, onSchedule }) {
   const C = useTheme();
   const [scope,   setScope]   = useState(agent.scope==="individual"?"individual":"book");
@@ -144,7 +144,7 @@ function AgentDetail({ agent, workstationClient, onBack, onRun, onSchedule }) {
   );
 }
 
-// ── Schedule form ─────────────────────────────────────────────────────────────
+// ── Schedule form ───────────────────────────────────────────────────────────────────
 function ScheduleForm({ agent, onConfirm, onCancel }) {
   const C = useTheme();
   const [scope,setScope]=useState(agent.scope==="individual"?"individual":"book");
@@ -182,7 +182,7 @@ function ScheduleForm({ agent, onConfirm, onCancel }) {
   );
 }
 
-// ── Agent card ────────────────────────────────────────────────────────────────
+// ── Agent card ───────────────────────────────────────────────────────────────────
 function AgentCard({ agent, isRunning, isScheduled, onRunOrDrillDown, onSchedule }) {
   const C = useTheme();
   const needsDrillDown = agent.scope==="individual" || agent.scope==="both";
@@ -216,7 +216,7 @@ function AgentCard({ agent, isRunning, isScheduled, onRunOrDrillDown, onSchedule
   );
 }
 
-// ── Activity row ──────────────────────────────────────────────────────────────
+// ── Activity row ──────────────────────────────────────────────────────────────────
 function ActivityRow({ job, onViewReport, onDelete }) {
   const C = useTheme();
   const S = {
@@ -256,10 +256,10 @@ function ActivityRow({ job, onViewReport, onDelete }) {
   );
 }
 
-// ── Reports panel ─────────────────────────────────────────────────────────────
+// ── Reports panel ──────────────────────────────────────────────────────────────────
 function ReportsPanel({ reports, onView }) {
   const C = useTheme();
-  if (!reports?.length) return <div style={{ padding:"40px 0",textAlign:"center",fontSize:13,color:C.textDim }}>No saved reports. Run an agent to generate one.</div>;
+  if (!reports?.length) return <div style={{ padding:"40px 0",textAlign:"center",fontSize:13,color:C.textDim }}>No results yet. Run an Assistant to generate one.</div>;
   const colors=[C.accent,C.teal,"#F97316","#A855F7"];
   const bgs=[C.accentBg,C.tealBg,"#FFF7ED","#F5F3FF"];
   return (
@@ -291,7 +291,7 @@ function ReportsPanel({ reports, onView }) {
   );
 }
 
-// ── Main ─────────────────────────────────────────────────────────────────────
+// ── Main ─────────────────────────────────────────────────────────────────────────────────
 export default function AgentControlCenter({ agentData, liveJobs=[], reports, onDeleteReport, workstationClient, onViewReport, getReportContent, initialTab }) {
   const C = useTheme();
   const [tab,          setTab]         = useState(initialTab || "agents");
@@ -395,14 +395,16 @@ export default function AgentControlCenter({ agentData, liveJobs=[], reports, on
       <style>{`@keyframes accDot{0%,100%{opacity:1}50%{opacity:.3}}`}</style>
 
       <div style={{ padding:"14px 20px 0",flexShrink:0 }}>
-        <div style={{ fontSize:18,fontWeight:700,color:C.text }}>Agent Control Center</div>
-        <div style={{ fontSize:12,color:C.textDim,marginTop:2 }}>Run, schedule, and monitor your intelligent agents</div>
+        <div style={{ fontSize:18,fontWeight:700,color:C.text }}>Command Center</div>
+        <div style={{ fontSize:12,color:C.textDim,marginTop:2 }}>Run, schedule, and monitor your Assistants</div>
       </div>
 
-      <div style={{ display:"flex",borderBottom:`1px solid ${C.border}`,margin:"10px 20px 0",flexShrink:0 }}>
-        {TAB("agents","Agents",0)}
-        {TAB("activity","Activity",liveJobs.filter(j=>j.status==="running").length)}
-        {TAB("reports","Reports",0)}
+      <div style={{ display:"flex",alignItems:"center",borderBottom:`1px solid ${C.border}`,margin:"10px 20px 0",flexShrink:0 }}>
+        {TAB("agents","Assistants",0)}
+        <ChevronRight size={13} color={C.textDim} style={{flexShrink:0}}/>
+        {TAB("activity","Progress",liveJobs.filter(j=>j.status==="running").length)}
+        <ChevronRight size={13} color={C.textDim} style={{flexShrink:0}}/>
+        {TAB("reports","Results",0)}
       </div>
 
       <div style={{ flex:1,overflowY:"auto",padding:"14px 20px" }}>
@@ -437,9 +439,9 @@ export default function AgentControlCenter({ agentData, liveJobs=[], reports, on
         {/* ── ACTIVITY */}
         {tab==="activity"&&(
           <>
-            <div style={{ fontSize:11,color:C.textDim,marginBottom:14 }}>Recent and upcoming agent jobs</div>
+            <div style={{ fontSize:11,color:C.textDim,marginBottom:14 }}>Recent and upcoming Assistant activity</div>
             {!allJobs.length
-              ? <div style={{ padding:"40px 0",textAlign:"center",fontSize:13,color:C.textDim }}>No recent activity. Run an agent to get started.</div>
+              ? <div style={{ padding:"40px 0",textAlign:"center",fontSize:13,color:C.textDim }}>No recent activity. Run an Assistant to get started.</div>
               : <div style={{ display:"flex",flexDirection:"column",gap:8 }}>
                   {allJobs.map((job,i)=>(
                     <ActivityRow key={job.jobId||job.scheduleId||i} job={job}
@@ -455,7 +457,7 @@ export default function AgentControlCenter({ agentData, liveJobs=[], reports, on
         {tab==="reports"&&(
           <>
             <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14 }}>
-              <div style={{ fontSize:11,color:C.textDim }}>Completed agent output — click View to open full report</div>
+              <div style={{ fontSize:11,color:C.textDim }}>Completed Assistant output — click View to open full report</div>
             </div>
             <ReportsPanel reports={reports} onView={handleViewFromReports}/>
           </>

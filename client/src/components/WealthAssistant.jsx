@@ -36,7 +36,7 @@ function findAgentName(agentData, agentId) {
 }
 
 const NBA_MAP = [
-  { keywords:["wire","transfer","servicing"], agentId:"sub-wire", label:"Servicing Agent — Send Wire" },
+  { keywords:["wire","transfer","servicing"], agentId:"sub-wire", label:"Servicing — Send Wire" },
   { keywords:["esg","interest","fund"],       agentId:"sub-602",  label:"Product Recommendations" },
   { keywords:["at-risk","withdrawal","gap"],  agentId:"sub-203",  label:"At-Risk Client Alerts" },
   { keywords:["review","annual","fact"],      agentId:"sub-106",  label:"Annual Review Prep" },
@@ -47,7 +47,7 @@ function getNBA(ins) {
   return NBA_MAP.find(r => r.keywords.some(k => txt.includes(k)));
 }
 
-// ── Insights drawer ───────────────────────────────────────────────────────────
+// ── Insights drawer ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 function InsightsDrawer({ open, onClose, onRunAgent, C }) {
   const [insights, setInsights] = useState([]);
   const [nbaDrop, setNbaDrop]   = useState(null);
@@ -108,7 +108,7 @@ function InsightsDrawer({ open, onClose, onRunAgent, C }) {
   );
 }
 
-// ── CSS var builder — includes hero card vars ─────────────────────────────────
+// ── CSS var builder — includes hero card vars ────────────────────────────────────────────────────
 function buildCSSVars(isDark) {
   if (isDark) return `
     --c-bg:#0a0b0d;--c-surface:#0f1014;--c-surface2:#13151e;--c-surface3:#181a22;
@@ -138,7 +138,7 @@ function buildCSSVars(isDark) {
   `;
 }
 
-// ── Main ─────────────────────────────────────────────────────────────────────
+// ── Main ─────────────────────────────────────────────────────────────────────────────────────────────────────────
 export default function WealthAssistant({ agentData }) {
   const advisorName = "James Miller";
 
@@ -197,7 +197,7 @@ export default function WealthAssistant({ agentData }) {
     poll(); const id = setInterval(poll, 30000); return ()=>clearInterval(id);
   }, []);
 
-  // ── Run agent for selected clients ────────────────────────────────────────
+  // ── Run agent for selected clients ──────────────────────────────────────────────────
   function handleClientsRunAgent(clients, agentId, agentName) {
     const resolved = agentName || findAgentName(agentData, agentId);
     const newJobs  = clients.map(c => ({
@@ -229,7 +229,7 @@ export default function WealthAssistant({ agentData }) {
     }, 3500);
   }
 
-  // ── Pin to Home ───────────────────────────────────────────────────────────
+  // ── Pin to Home ───────────────────────────────────────────────────────────────
   function handlePinToHome(report) {
     const entry = {
       id: `pin-${Date.now()}`,
@@ -253,21 +253,21 @@ export default function WealthAssistant({ agentData }) {
     localStorage.setItem(PINNED_KEY, JSON.stringify(next));
   }
 
-  // ── Insights NBA run ──────────────────────────────────────────────────────
+  // ── Insights NBA run ───────────────────────────────────────────────────────────────
   function handleInsightRun(agent, insight) {
     handleClientsRunAgent([CLIENTS[0]], agent.id, agent.name);
     setInsightsOpen(false);
   }
 
   const breadcrumbs = {
-    canvas:"Home", agents:"Agent Control Center",
+    canvas:"Home", agents:"Command Center",
     projectCenter:"Custom Workspace", projectDetail:activeProject?.name??"Custom Workspace",
     clients:"My Clients",
   };
 
   const navItems = [
     { icon:Home,     label:"Home",                 view:"canvas"       },
-    { icon:Bot,      label:"Agent Control Center", view:"agents",       badge:liveJobs.filter(j=>j.status==="running").length||null },
+    { icon:Bot,      label:"Command Center", view:"agents",       badge:liveJobs.filter(j=>j.status==="running").length||null },
     { icon:Layers,   label:"Custom Workspace",     view:"projectCenter",badge:projects.length||null },
     { icon:Users,    label:"My Clients",           view:"clients"      },
     { icon:Settings, label:"Settings",             view:null           },
