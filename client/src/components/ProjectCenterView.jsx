@@ -41,7 +41,7 @@ function fmtDate(iso) {
   return new Date(iso).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"});
 }
 
-// ── Status pill ───────────────────────────────────────────────────────────────
+// ── Status pill ────────────────────────────────────────────────────────────────────────
 function StatusPill({ project }) {
   const hasResults  = (project.results||[]).length > 0;
   const hasClients  = (project.clients||[]).length > 0;
@@ -62,7 +62,7 @@ function StatusPill({ project }) {
   );
 }
 
-// ── Workspace card ────────────────────────────────────────────────────────────
+// ── Workspace card ─────────────────────────────────────────────────────────────────────
 function WorkspaceCard({ project, onOpen, onDelete }) {
   const [hovered, setHovered] = useState(false);
   const clientCount  = (project.clients||[]).length;
@@ -105,7 +105,7 @@ function WorkspaceCard({ project, onOpen, onDelete }) {
         {[
           { icon:Users,     value:clientCount,  label:`client${clientCount!==1?"s":""}`,    clr:C.blue  },
           { icon:FileText,  value:docCount,     label:`doc${docCount!==1?"s":""}`,          clr:C.teal  },
-          { icon:BarChart2, value:agentCount,   label:`agent run${agentCount!==1?"s":""}`,  clr:C.amber },
+          { icon:BarChart2, value:agentCount,   label:`run${agentCount!==1?"s":""}`,  clr:C.amber },
         ].map((m,i)=>(
           <div key={i} style={{ display:"flex",alignItems:"center",gap:4 }}>
             <m.icon size={11} color={m.value>0?m.clr:C.textDim}/>
@@ -123,7 +123,7 @@ function WorkspaceCard({ project, onOpen, onDelete }) {
   );
 }
 
-// ── New Workspace modal ───────────────────────────────────────────────────────
+// ── New Workspace modal ───────────────────────────────────────────────────────────────────────
 function NewWorkspaceModal({ onSave, onClose }) {
   const [name, setName] = useState("");
   function submit() { if (name.trim()) { onSave(name.trim()); onClose(); } }
@@ -134,7 +134,7 @@ function NewWorkspaceModal({ onSave, onClose }) {
           <div style={{ fontSize:16,fontWeight:700,color:C.text }}>New Workspace</div>
           <button onClick={onClose} style={{ background:"none",border:"none",cursor:"pointer",color:C.textDim }}><X size={16}/></button>
         </div>
-        <div style={{ fontSize:12,color:C.textDim,marginBottom:14 }}>Give your workspace a name. You can add clients, documents, and run agents after creating it.</div>
+        <div style={{ fontSize:12,color:C.textDim,marginBottom:14 }}>Give your workspace a name. You can add clients, documents, and run Assistants after creating it.</div>
         <input
           value={name} onChange={e=>setName(e.target.value)} autoFocus placeholder="e.g. Smith Family Tax Review, Q4 Rebalancing…"
           onKeyDown={e=>e.key==="Enter"&&submit()}
@@ -154,12 +154,12 @@ function NewWorkspaceModal({ onSave, onClose }) {
   );
 }
 
-// ── Empty state ───────────────────────────────────────────────────────────────
+// ── Empty state ───────────────────────────────────────────────────────────────────────────
 function EmptyState({ onCreate }) {
   const steps = [
     { n:"1", clr:C.blue,   bg:C.blueBg,   border:C.blueBorder,   title:"Create a Workspace",    body:"Name it anything — a client family, a batch workflow, or a seasonal review cycle." },
     { n:"2", clr:C.teal,   bg:C.tealBg,   border:C.tealBorder,   title:"Add Clients & Docs",    body:"Pull clients from My Clients, or upload fact sheets, proposals, and PDFs." },
-    { n:"3", clr:C.amber,  bg:C.amberBg,  border:C.amberBorder,  title:"Select an Agent",       body:"Choose from Tax Loss Harvesting, Holdings Audit, Outreach Drafts, and more." },
+    { n:"3", clr:C.amber,  bg:C.amberBg,  border:C.amberBorder,  title:"Select an Assistant",   body:"Choose from Tax Loss Harvesting, Holdings Audit, Outreach Drafts, and more." },
     { n:"4", clr:C.purple, bg:C.purpleBg, border:C.purpleBorder, title:"Review & Save Results", body:"Results appear instantly. Chat with them, export to PDF, or save to Reports." },
   ];
   return (
@@ -170,7 +170,7 @@ function EmptyState({ onCreate }) {
         </div>
         <div style={{ fontSize:26,fontWeight:700,color:C.text,marginBottom:12 }}>Welcome to Custom Workspace</div>
         <div style={{ fontSize:14,color:C.textMuted,lineHeight:1.7,marginBottom:28 }}>
-          Workspaces let you group clients, documents, and agent results into named sessions — so you can run batch workflows, track outcomes, and build a paper trail for compliance.
+          Workspaces let you group clients, documents, and Assistant results into named sessions — so you can run batch workflows, track outcomes, and build a paper trail for compliance.
         </div>
         <button onClick={onCreate}
           style={{ display:"inline-flex",alignItems:"center",gap:8,padding:"11px 24px",background:C.blue,border:"none",borderRadius:9,cursor:"pointer",fontSize:14,fontWeight:600,color:"#fff",fontFamily:"inherit" }}>
@@ -194,7 +194,7 @@ function EmptyState({ onCreate }) {
   );
 }
 
-// ── Main ─────────────────────────────────────────────────────────────────────
+// ── Main ─────────────────────────────────────────────────────────────────────────────────
 export default function ProjectCenterView({ projects, onCreateProject, onDeleteProject, onOpenProject }) {
   const [showModal, setShowModal] = useState(false);
   const [search,    setSearch]    = useState("");

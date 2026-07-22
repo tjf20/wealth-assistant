@@ -30,7 +30,7 @@ function fmtAUM(accounts) {
   return t >= 1e9 ? `$${(t/1e9).toFixed(2)}B` : t >= 1e6 ? `$${(t/1e6).toFixed(1)}M` : fmt(t);
 }
 
-// ── Badges ────────────────────────────────────────────────────────────────────
+// ── Badges ────────────────────────────────────────────────────────────────────────
 function TypeBadge({ type }) {
   const C = useTheme();
   const map = { Individual: { bg: C.blueBg, border: C.blueBorder, color: C.blue }, Business: { bg: C.tealBg, border: C.tealBorder, color: C.teal }, Estate: { bg: C.amberBg, border: C.amberBorder, color: C.amber } };
@@ -43,13 +43,13 @@ function CPBadge({ cp }) {
   return <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: ".06em", textTransform: "uppercase", padding: "2px 7px", borderRadius: 4, background: isPros ? C.purpleBg : C.surface2, color: isPros ? C.purple : C.textMuted, border: `1px solid ${isPros ? C.purpleBorder : C.border}` }}>{isPros ? "Prospect" : "Client"}</span>;
 }
 
-// ── Agent picker popover ──────────────────────────────────────────────────────
+// ── Agent picker popover ────────────────────────────────────────────────────────────────────
 function AgentPicker({ onSelect, onClose }) {
   const C = useTheme();
   return (
     <div style={{ position: "absolute", top: "100%", right: 0, zIndex: 99, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, width: 220, boxShadow: "0 8px 24px rgba(0,0,0,0.3)", overflow: "hidden", marginTop: 4 }}>
       <div style={{ padding: "5px 10px", fontSize: 10, color: C.textHint, background: C.surface2, borderBottom: `1px solid ${C.border}`, textTransform: "uppercase", letterSpacing: ".07em" }}>
-        Run Agent For Client
+        Run Assistant For Client
       </div>
       {QUICK_AGENTS.map(a => (
         <div key={a.id} onClick={() => onSelect(a)}
@@ -65,7 +65,7 @@ function AgentPicker({ onSelect, onClose }) {
   );
 }
 
-// ── Accounts Drawer ───────────────────────────────────────────────────────────
+// ── Accounts Drawer ─────────────────────────────────────────────────────────────────────────
 function AccountsDrawer({ client, open, onClose, onAddToQueue }) {
   const C = useTheme();
   const [sel, setSel] = useState(new Set());
@@ -125,7 +125,7 @@ function AccountsDrawer({ client, open, onClose, onAddToQueue }) {
   );
 }
 
-// ── Main ──────────────────────────────────────────────────────────────────────
+// ── Main ──────────────────────────────────────────────────────────────────────────────────────────
 export default function MyClientsView({ allClients, onSendToAgent, onRunAgentForClients, onSetWorkstationClient }) {
   const C = useTheme();
 
@@ -341,7 +341,7 @@ export default function MyClientsView({ allClients, onSendToAgent, onRunAgentFor
                       <div ref={agentPickRow === client.clientId ? pickerRef : null} style={{ position: "relative" }}>
                         <button onClick={() => setAgentPickRow(agentPickRow === client.clientId ? null : client.clientId)}
                           style={{ padding: "4px 9px", background: C.accentBg, color: C.accent, border: `1px solid ${C.accentBorder}`, borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 4, whiteSpace: "nowrap" }}>
-                          <Play size={10} />Run Agent
+                          <Play size={10} />Run Assistant
                         </button>
                         {agentPickRow === client.clientId && (
                           <AgentPicker onSelect={a => handleRowRunAgent(client, a)} onClose={() => setAgentPickRow(null)} />
@@ -387,12 +387,12 @@ export default function MyClientsView({ allClients, onSendToAgent, onRunAgentFor
           <div style={{ position: "relative" }}>
             <button onClick={() => setMultiAgentOpen(o => !o)}
               style={{ padding: "6px 12px", background: C.accent, color: "#fff", border: "none", borderRadius: 7, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 6 }}>
-              <Play size={12} />Run Agent <ChevronDown size={12} />
+              <Play size={12} />Run Assistant <ChevronDown size={12} />
             </button>
             {multiAgentOpen && (
               <div style={{ position: "absolute", bottom: "100%", left: 0, zIndex: 99, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, width: 220, overflow: "hidden", marginBottom: 4, boxShadow: "0 8px 24px rgba(0,0,0,0.4)" }}>
                 <div style={{ padding: "5px 10px", fontSize: 10, color: C.textHint, background: C.surface2, borderBottom: `1px solid ${C.border}`, textTransform: "uppercase", letterSpacing: ".07em" }}>
-                  Run Agent for {selectedCount} clients
+                  Run Assistant for {selectedCount} clients
                 </div>
                 {QUICK_AGENTS.filter(a => a.scope !== "book").map(a => (
                   <div key={a.id} onClick={() => handleMultiRunAgent(a)}
@@ -420,9 +420,9 @@ export default function MyClientsView({ allClients, onSendToAgent, onRunAgentFor
         <div onClick={() => queueItems.length > 0 && setQueueExpanded(o => !o)}
           style={{ display: "flex", alignItems: "center", gap: 10, padding: "0 20px", height: 38, cursor: queueItems.length > 0 ? "pointer" : "default" }}>
           <Send size={14} color={queueItems.length > 0 ? C.accent : C.textDim} />
-          <span style={{ fontSize: 12, fontWeight: 600, color: queueItems.length > 0 ? C.accent : C.textMuted }}>Agent Queue</span>
+          <span style={{ fontSize: 12, fontWeight: 600, color: queueItems.length > 0 ? C.accent : C.textMuted }}>Assistant Queue</span>
           {queueItems.length > 0 && <span style={{ fontSize: 10, fontWeight: 700, padding: "1px 7px", borderRadius: 10, background: C.accentBg, color: C.accent, border: `1px solid ${C.accentBorder}` }}>{queueItems.length}</span>}
-          {queueItems.length === 0 && <span style={{ fontSize: 11, color: C.textDim }}>— click a client's Run Agent button above</span>}
+          {queueItems.length === 0 && <span style={{ fontSize: 11, color: C.textDim }}>— click a client's Run Assistant button above</span>}
           {queueItems.length > 0 && <ChevronDown size={13} style={{ marginLeft: "auto", color: C.textDim, transform: queueExpanded ? "rotate(180deg)" : "none", transition: "transform 0.2s" }} />}
         </div>
 
