@@ -1,12 +1,18 @@
 // client/src/components/WealthAssistant.jsx
+// v9 changes:
+//   • Home is the new landing tab (see HomeView.jsx) — Morning Brief strip +
+//     a carousel of static tiles plus FA-configured Workspace cards. Insights
+//     drops to the #2 sidebar slot.
+//   • "Pin to Home" reports moved from Insights to Home, matching the name.
+//   • handleConfigureAgent: Command Center's new Configure action creates or
+//     updates a Workspace, runs the Assistant into it, and applies pin-to-Home
+//     + recurring schedule settings — the "Home -> Plan My Day" flow.
 // v8 changes:
 //   • Chat panel now starts collapsed; auto-expands whenever the user lands on
 //     Command Center (navView "agents"), from any entry point
 // v7 changes:
-//   • Insights is now the sole landing workspace — replaces the old "Home" canvas
-//     and the small bell-icon Insights drawer entirely (see InsightsHome.jsx)
+//   • Insights is now a domain-grouped workspace (see InsightsHome.jsx)
 //   • reportContentMap: stores full generateReportContent() objects so Reports tab can open viewer
-//   • pinnedReports: "Pin to Insights" — reports appear in the Insights "Pinned Results" strip
 //   • Extended CSS vars include hero card (fixes green-on-green in light theme)
 //   • All "Project Center" → "Custom Workspace", internal "Project" → "Workspace"
 //   • Chat collapse button added to topbar
@@ -17,12 +23,13 @@ import { useState, useRef, useEffect } from "react";
 import { Home, Sun, Moon, Zap, Layers, Bot, Users, Settings, PanelRightClose, Lightbulb } from "lucide-react";
 
 import { ThemeContext, DARK, LIGHT } from "../theme.js";
-import InsightsHome       from "./InsightsHome.jsx";
-import MyClientsView      from "./MyClientsView.jsx";
-import ProjectCenterView  from "./ProjectCenterView.jsx";
-import ProjectDetailView  from "./ProjectDetailView.jsx";
-import AgentControlCenter from "./AgentControlCenter.jsx";
-import WealthChatPanel    from "./WealthChatPanel.jsx";
+import HomeView            from "./HomeView.jsx";
+import InsightsHome        from "./InsightsHome.jsx";
+import MyClientsView       from "./MyClientsView.jsx";
+import ProjectCenterView   from "./ProjectCenterView.jsx";
+import ProjectDetailView   from "./ProjectDetailView.jsx";
+import AgentControlCenter  from "./AgentControlCenter.jsx";
+import WealthChatPanel     from "./WealthChatPanel.jsx";
 import ReportViewer, { generateReportContent } from "./ReportViewer.jsx";
 
 import { useProjects }    from "../hooks/useProjects.js";
@@ -42,7 +49,7 @@ function findAgentName(agentData, agentId) {
   return agentId;
 }
 
-// ── CSS var builder — includes hero card vars ────────────────────────────────────────────────────
+// ── CSS var builder — includes hero card vars ────────────────────────────────────────────────────────────
 function buildCSSVars(isDark) {
   if (isDark) return `
     --c-bg:#0a0b0d;--c-surface:#0f1014;--c-surface2:#13151e;--c-surface3:#181a22;
@@ -72,11 +79,11 @@ function buildCSSVars(isDark) {
   `;
 }
 
-// ── Main ─────────────────────────────────────────────────────────────────────────────────────────────────────────
+// ── Main ────────────────────────────────────────────────────────────────────────────────────────────────────────────
 export default function WealthAssistant({ agentData }) {
   const advisorName = "James Miller";
 
-  const [navView,          setNavView]       = useState("insights");
+  const [navView,          setNavView]       = useState("home");
   const [theme,            setTheme]         = useState("dark");
   const [chatCollapsed,    setChatCollapsed] = useState(true);
   const [insightCount,     setInsightCount]  = useState(2);
@@ -87,7 +94,7 @@ export default function WealthAssistant({ agentData }) {
   const [viewingReport,    setViewingReport] = useState(null);
   const [accInitialTab,    setAccInitialTab] = useState("agents"); // forces ACC to a specific tab
 
-  // pinnedReports: reports the FA has pinned to show in Insights' "Pinned Results" strip
+  // pinnedReports: reports the FA has pinned to show on Home
   const [pinnedReports, setPinnedReports] = useState(() => {
     try { return JSON.parse(localStorage.getItem(PINNED_KEY) || "[]"); } catch { return []; }
   });
@@ -120,7 +127,13 @@ export default function WealthAssistant({ agentData }) {
   const isDark = theme === "dark";
   const C = isDark ? DARK : LIGHT;
 
-  const { projects, createProject, deleteProject, addClientsToProject, removeClientFromProject, addDocumentToProject, removeDocumentFromProject, addResultToProject, updateResultStatus } = useProjects();
+  const {
+    projects, createProject, deleteProject,
+    addClientsToProject, removeClientFromProject,
+    addDocumentToProject, removeDocumentFromProject,
+    addResultToProject, updateResultStatus, updateResult,
+    setProjectHomePinned, setProjectSchedule,
+  } = useProjects();
   const { reports, saveReport, deleteReport, renameReport } = useReports();
 
   function showToast(msg) { setToast(msg); setTimeout(()=>setToast(null), 4000); }
@@ -136,7 +149,7 @@ export default function WealthAssistant({ agentData }) {
     if (navView === "agents") setChatCollapsed(false);
   }, [navView]);
 
-  // ── Run agent for selected clients ──────────────────────────────────────────────────
+  // ── Run agent for selected clients ─────────────────────────────────────────────────────────
   function handleClientsRunAgent(clients, agentId, agentName) {
     const resolved = agentName || findAgentName(agentData, agentId);
     const newJobs  = clients.map(c => ({
@@ -201,7 +214,41 @@ export default function WealthAssistant({ agentData }) {
     }, 3500);
   }
 
-  // ── Pin to Insights ───────────────────────────────────────────────────────────
+  // ── Configure from Command Center: create/update a Workspace, run the agent into
+  // it, and apply pin-to-Home + recurring schedule. This is the "Home -> Plan My Day"
+  // flow — an FA can make any Assistant show up on Home, refreshed on its own,
+  // without a pre-built dashboard ever having to exist for it.
+  function handleConfigureAgent(agent, cfg) {
+    const resolved = agent.name || findAgentName(agentData, agent.id);
+    const project = cfg.mode === "existing" && cfg.existingProjectId
+      ? projects.find(p => p.id === cfg.existingProjectId)
+      : createProject(cfg.workspaceName || resolved);
+    if (!project) return;
+
+    setProjectHomePinned(project.id, !!cfg.pinnedToHome);
+    setProjectSchedule(project.id, cfg.schedule || null);
+
+    const result = {
+      id: `res-${Date.now()}`,
+      agentId: agent.id, agentName: resolved,
+      workflowName: resolved, ranAt: new Date().toISOString(),
+      summary: "Running…", rows: [], status: "running",
+    };
+    addResultToProject(project.id, result);
+
+    setTimeout(() => {
+      const content = generateReportContent(agent.id, resolved, null, "book");
+      updateResult(project.id, result.id, {
+        status: "done",
+        summary: content.summary,
+        rows: content.rows || [],
+      });
+      const saved = saveReport(`${resolved} — ${project.name}`, content, project.name);
+      if (saved && saved.id) storeReportContent(saved.id, content);
+    }, 3500);
+  }
+
+  // ── Pin to Home ───────────────────────────────────────────────────────────────────
   function handlePinToHome(report) {
     const entry = {
       id: `pin-${Date.now()}`,
@@ -210,13 +257,13 @@ export default function WealthAssistant({ agentData }) {
       summary: report.summary || "",
       agentName: report.agentName || "",
       generatedAt: report.generatedAt || new Date().toLocaleString(),
-      // Store the full content inline so InsightsHome can open it
+      // Store the full content inline so HomeView can open it
       content: report,
     };
     const next = [entry, ...pinnedReports].slice(0, 6); // max 6 pinned cards
     setPinnedReports(next);
     localStorage.setItem(PINNED_KEY, JSON.stringify(next));
-    showToast("Report pinned — find it in Insights → Pinned Results");
+    showToast("Report pinned — find it on Home");
   }
 
   function handleUnpinReport(pinId) {
@@ -226,12 +273,13 @@ export default function WealthAssistant({ agentData }) {
   }
 
   const breadcrumbs = {
-    insights:"Insights", agents:"Command Center",
+    home:"Home", insights:"Insights", agents:"Command Center",
     projectCenter:"Custom Workspace", projectDetail:activeProject?.name??"Custom Workspace",
     clients:"My Clients",
   };
 
   const navItems = [
+    { icon:Home,     label:"Home",                   view:"home"                                                },
     { icon:Lightbulb,label:"Insights",             view:"insights",     badge:insightCount||null },
     { icon:Bot,      label:"Command Center",       view:"agents",       badge:liveJobs.filter(j=>j.status==="running").length||null },
     { icon:Layers,   label:"Custom Workspace",     view:"projectCenter",badge:projects.length||null },
@@ -285,7 +333,7 @@ export default function WealthAssistant({ agentData }) {
             {/* Topbar */}
             <div style={{ height:52, borderBottom:`1px solid ${C.border}`, display:"flex", alignItems:"center", padding:"0 20px", gap:12, background:C.topbar, flexShrink:0 }}>
               <div style={{ display:"flex", alignItems:"center", gap:6, fontSize:13, flex:1 }}>
-                <Home size={13} style={{ cursor:"pointer", color:C.textDim }} onClick={()=>setNavView("insights")}/>
+                <Home size={13} style={{ cursor:"pointer", color:C.textDim }} onClick={()=>setNavView("home")}/>
                 <span style={{color:C.textDim}}>›</span>
                 <span style={{ color:C.text, fontWeight:500 }}>{breadcrumbs[navView]||navView}</span>
                 {navView==="projectDetail"&&activeProject&&(
@@ -312,15 +360,25 @@ export default function WealthAssistant({ agentData }) {
             <div style={{ flex:1, display:"flex", overflow:"hidden" }}>
               <div style={{ flex:1, overflow:"hidden", display:"flex", flexDirection:"column", position:"relative" }}>
 
+                {navView==="home" && (
+                  <HomeView
+                    advisorName={advisorName}
+                    allClients={CLIENTS}
+                    projects={projects}
+                    onOpenWorkspace={p=>{setActiveProject(p);setNavView("projectDetail");}}
+                    onGoToCommandCenter={()=>setNavView("agents")}
+                    pinnedReports={pinnedReports}
+                    onViewReport={r=>setViewingReport(r)}
+                    onUnpinReport={handleUnpinReport}
+                  />
+                )}
+
                 {navView==="insights" && (
                   <InsightsHome
                     agentData={agentData}
                     allClients={CLIENTS}
                     onRunAgent={handleAgentRun}
                     onSetWorkstationClient={(client)=>{setWsClient(client);showToast(`${client.name} synced to Wealth Chat`);}}
-                    pinnedReports={pinnedReports}
-                    onViewReport={r=>setViewingReport(r)}
-                    onUnpinReport={handleUnpinReport}
                   />
                 )}
 
@@ -335,6 +393,8 @@ export default function WealthAssistant({ agentData }) {
                     getReportContent={getReportContent}
                     initialTab={accInitialTab}
                     onRunAgent={handleAgentRun}
+                    projects={projects}
+                    onConfigureAgent={handleConfigureAgent}
                   />
                 )}
 
