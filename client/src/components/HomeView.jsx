@@ -144,7 +144,9 @@ function WorkspaceCard({ C, project, onOpen }) {
       )}
       {latest ? (
         <div style={{ fontSize:11, color:C.textMid, lineHeight:1.5, display:"-webkit-box", WebkitLineClamp:3, WebkitBoxOrient:"vertical", overflow:"hidden" }}>
-          {latest.status==="running" ? "Running…" : (latest.summary || "Complete — open to view.")}
+          {latest.status==="running" || latest.summary==="Running…"
+            ? (latest.status==="running" ? "Running…" : "Complete — open to view.")
+            : (latest.summary || "Complete — open to view.")}
         </div>
       ) : (
         <div style={{ fontSize:11, color:C.textDim }}>Not run yet.</div>
