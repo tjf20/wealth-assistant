@@ -118,6 +118,16 @@ export function useProjects() {
     ));
   }, []);
 
+  // Merge an arbitrary patch (e.g. { status:"done", summary, rows }) into a result
+  const updateResult = useCallback((projectId, resultId, patch) => {
+    setProjects(prev => prev.map(p =>
+      p.id !== projectId ? p : {
+        ...p,
+        results: p.results.map(r => r.id === resultId ? { ...r, ...patch } : r)
+      }
+    ));
+  }, []);
+
   return {
     projects,
     createProject,
@@ -132,5 +142,6 @@ export function useProjects() {
     removeDocumentFromProject,
     addResultToProject,
     updateResultStatus,
+    updateResult,
   };
 }
