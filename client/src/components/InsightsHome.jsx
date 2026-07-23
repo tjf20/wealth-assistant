@@ -5,6 +5,8 @@
 // changes required. Every card either drills into a real client (Sync to Chat) or
 // runs a real Assistant through the same Progress -> Results pipeline as Command
 // Center, so nothing here is a dead end.
+// INSIGHT_DOMAINS is exported so Command Center's Assistants tab can filter by
+// the same 7 categories, with matching colors.
 
 import { useState, useEffect, useMemo } from "react";
 import {
@@ -13,7 +15,7 @@ import {
 } from "lucide-react";
 import { useTheme } from "../theme.js";
 
-const INSIGHT_DOMAINS = [
+export const INSIGHT_DOMAINS = [
   { key:"Client Financials", label:"Client Financials", icon:BarChart2,  color:"blue",   desc:"Realized gains, cash balances, tax lots" },
   { key:"Prospecting",       label:"Prospecting",        icon:UserPlus,   color:"purple", desc:"Pipeline, scoring, outreach opportunities" },
   { key:"Client Deepening",  label:"Client Deepening",   icon:Gift,       color:"coral",  desc:"Relationship signals, life events, product fit" },
