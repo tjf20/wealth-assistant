@@ -1,17 +1,18 @@
 // client/src/components/InsightsHome.jsx
-// Insights — the sole landing workspace (replaces the old cartoonish "Home" canvas
-// and the small bell-icon Insights drawer). Domain groupings are intentionally
-// open-ended: add an object to INSIGHT_DOMAINS to introduce a new domain, no other
-// changes required. Every card either drills into a real client (Sync to Chat) or
-// runs a real Assistant through the same Progress -> Results pipeline as Command
-// Center, so nothing here is a dead end.
+// Insights — a domain-grouped feed of everything your Assistants have
+// proactively surfaced. Domain groupings are intentionally open-ended: add an
+// object to INSIGHT_DOMAINS to introduce a new domain, no other changes
+// required. Every card either drills into a real client (Sync to Chat) or
+// runs a real Assistant through the same Progress -> Results pipeline as
+// Command Center, so nothing here is a dead end.
 // INSIGHT_DOMAINS is exported so Command Center's Assistants tab can filter by
 // the same 7 categories, with matching colors.
+// "Pin to Home" reports live on the Home tab now, not here.
 
 import { useState, useEffect, useMemo } from "react";
 import {
   Lightbulb, TrendingUp, UserPlus, Gift, Map, BarChart2, ShieldCheck, Briefcase,
-  X, ChevronRight, Bot, Pin, ExternalLink, RefreshCw, CheckCircle2,
+  X, ChevronRight, Bot, RefreshCw, CheckCircle2,
 } from "lucide-react";
 import { useTheme } from "../theme.js";
 
@@ -184,35 +185,9 @@ function DetailDrawer({ insight, domain, client, agentData, onClose, onRun, onSe
   );
 }
 
-// ── Pinned results strip (carried over from the old "Pin to Home" feature) ───
-function PinnedStrip({ pinnedReports, onViewReport, onUnpinReport, C }) {
-  if (!pinnedReports?.length) return null;
-  return (
-    <div style={{ marginBottom:22 }}>
-      <div style={{ fontSize:11, fontWeight:700, color:C.textDim, textTransform:"uppercase", letterSpacing:".06em", marginBottom:10, display:"flex", alignItems:"center", gap:6 }}>
-        <Pin size={11}/>Pinned Results
-      </div>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))", gap:10 }}>
-        {pinnedReports.map(p=>(
-          <div key={p.id} style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:10, padding:12, position:"relative" }}>
-            <button onClick={()=>onUnpinReport(p.id)} style={{ position:"absolute", top:8, right:8, background:"none", border:"none", color:C.textDim, cursor:"pointer" }}><X size={12}/></button>
-            <div style={{ fontSize:12, fontWeight:600, color:C.text, marginBottom:4, paddingRight:16 }}>{p.title}</div>
-            {p.summary && <div style={{ fontSize:11, color:C.textDim, marginBottom:8, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{p.summary}</div>}
-            <button onClick={()=>onViewReport(p.content)}
-              style={{ padding:"4px 9px", background:C.accentBg, color:C.accent, border:`1px solid ${C.accentBorder}`, borderRadius:6, fontSize:10, fontWeight:600, cursor:"pointer", fontFamily:"inherit", display:"flex", alignItems:"center", gap:4 }}>
-              <ExternalLink size={10}/>View
-            </button>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 // ── Main ───────────────────────────────────────────────────────────────────────
 export default function InsightsHome({
   agentData, allClients, onRunAgent, onSetWorkstationClient,
-  pinnedReports, onViewReport, onUnpinReport,
 }) {
   const C = useTheme();
   const [insights, setInsights]       = useState([]);
@@ -259,7 +234,6 @@ export default function InsightsHome({
 
       <div style={{ flex:1, overflowY:"auto", padding:"18px 24px" }}>
         <PracticeSnapshot C={C}/>
-        <PinnedStrip pinnedReports={pinnedReports} onViewReport={onViewReport} onUnpinReport={onUnpinReport} C={C}/>
 
         {/* Domain filter chips */}
         <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:18 }}>
