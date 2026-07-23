@@ -3,15 +3,23 @@
 //   • Run Now on individual/both-scope agents → opens AgentDetail (client picker) first
 //   • Reports tab View button uses getReportContent(r.id) to load full report content
 //   • All "Project" language removed
+// v2 — Configure/Run/Schedule:
+//   • Assistants now carry a `domain` (from agentMeta.js root agents) and can be
+//     filtered by the same 7 categories Insights uses, with matching colors.
+//   • Each Assistant card has three distinct actions: Run (once, now), Schedule
+//     (recurring, standalone), and Configure (new — creates/updates a Workspace,
+//     runs the Assistant into it, and optionally pins it to Home with its own
+//     schedule so it's ready every morning without a pre-built dashboard).
 
 import { useState, useEffect } from "react";
 import {
   Play, Calendar, Pause, Clock, CheckCircle, Download, FileText,
   RotateCcw, Briefcase, Users, ArrowLeft, Search, ExternalLink,
-  Trash2, RefreshCw, X, ChevronRight,
+  Trash2, RefreshCw, X, ChevronRight, Home, FolderPlus, FolderOpen,
 } from "lucide-react";
 import { useTheme } from "../theme.js";
 import { generateReportContent } from "./ReportViewer.jsx";
+import { INSIGHT_DOMAINS } from "./InsightsHome.jsx";
 import clientsData from "../data/clients.json";
 
 const CLIENTS = Array.isArray(clientsData) ? clientsData : [];
@@ -21,7 +29,7 @@ function fmtAUM(accounts) {
   return t>=1e9?`$${(t/1e9).toFixed(2)}B`:t>=1e6?`$${(t/1e6).toFixed(1)}M`:`$${(t/1e3).toFixed(0)}K`;
 }
 
-// ── Scope badge ──────────────────────────────────────────────────────────────────
+// ── Scope badge ───────────────────────────────────────────────────────────────────
 function ScopeBadge({ scope }) {
   const C = useTheme();
   const book = <span key="b" style={{ fontSize:9,padding:"2px 6px",borderRadius:8,fontWeight:600,background:C.accentBg,color:C.accent,border:`1px solid ${C.accentBorder}`,display:"inline-flex",alignItems:"center",gap:3 }}><Briefcase size={8}/>Book</span>;
@@ -32,7 +40,20 @@ function ScopeBadge({ scope }) {
   return null;
 }
 
-// ── Agent Detail drill-down (scope + client picker) ────────────────────────────────────────────────────────────
+// ── Domain badge (small dot, matches Insights coloring) ─────────────────────────────
+function DomainBadge({ domain }) {
+  const C = useTheme();
+  const meta = INSIGHT_DOMAINS.find(d=>d.key===domain);
+  if (!meta) return null;
+  const clr = C[meta.color] || C.accent;
+  return (
+    <span style={{ fontSize:9, color:clr, display:"inline-flex", alignItems:"center", gap:4, fontWeight:600 }}>
+      <span style={{ width:6, height:6, borderRadius:"50%", background:clr, display:"inline-block" }}/>{domain}
+    </span>
+  );
+}
+
+// ── Agent Detail drill-down (scope + client picker) ────────────────────────────────
 function AgentDetail({ agent, workstationClient, onBack, onRun, onSchedule }) {
   const C = useTheme();
   const [scope,   setScope]   = useState(agent.scope==="individual"?"individual":"book");
@@ -144,7 +165,7 @@ function AgentDetail({ agent, workstationClient, onBack, onRun, onSchedule }) {
   );
 }
 
-// ── Schedule form ───────────────────────────────────────────────────────────────────────────
+// ── Schedule form ───────────────────────────────────────────────────────────────────
 function ScheduleForm({ agent, onConfirm, onCancel }) {
   const C = useTheme();
   const [scope,setScope]=useState(agent.scope==="individual"?"individual":"book");
@@ -182,11 +203,106 @@ function ScheduleForm({ agent, onConfirm, onCancel }) {
   );
 }
 
-// ── Agent card ───────────────────────────────────────────────────────────────────────────
-function AgentCard({ agent, isRunning, isScheduled, onRunOrDrillDown, onSchedule }) {
+// ── Configure modal — creates/updates a Workspace, optionally pins to Home + schedules ──
+function ConfigureModal({ agent, projects, onConfirm, onClose }) {
   const C = useTheme();
-  const needsDrillDown = agent.scope==="individual" || agent.scope==="both";
-  const btnLabel = isRunning ? "Running…" : needsDrillDown ? "Configure & Run" : "Run Now";
+  const hasExisting = (projects||[]).length > 0;
+  const [mode, setMode]         = useState("new"); // "new" | "existing"
+  const [name, setName]         = useState(agent.name);
+  const [existingId, setExisting] = useState(projects?.[0]?.id || "");
+  const [pinned, setPinned]     = useState(true);
+  const [freq, setFreq]         = useState("daily"); // "none" | "daily" | "weekly"
+  const [time, setTime]         = useState("07:00");
+  const inp = { width:"100%",padding:"8px 11px",border:`1px solid ${C.border2}`,borderRadius:7,fontSize:12,fontFamily:"inherit",background:C.surface2,color:C.text,outline:"none" };
+
+  function submit() {
+    onConfirm({
+      mode,
+      workspaceName: name.trim() || agent.name,
+      existingProjectId: mode==="existing" ? existingId : null,
+      pinnedToHome: pinned,
+      schedule: freq==="none" ? null : { freq, time },
+    });
+  }
+
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.65)", zIndex:60, display:"flex", alignItems:"center", justifyContent:"center" }}>
+      <div style={{ background:C.surface, border:`1px solid ${C.border2}`, borderRadius:12, padding:24, width:440, boxShadow:"0 24px 48px rgba(0,0,0,0.6)" }}>
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:6 }}>
+          <div style={{ fontSize:15, fontWeight:700, color:C.text }}>Configure: {agent.name}</div>
+          <button onClick={onClose} style={{ background:"none", border:"none", cursor:"pointer", color:C.textMuted }}><X size={16}/></button>
+        </div>
+        <div style={{ fontSize:11, color:C.textDim, marginBottom:16, lineHeight:1.6 }}>
+          Run this Assistant into a Workspace, then decide whether it should show up on Home and refresh on its own.
+        </div>
+
+        {/* New vs existing workspace */}
+        <div style={{ display:"flex", gap:8, marginBottom:12 }}>
+          <button onClick={()=>setMode("new")}
+            style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center", gap:6, padding:"8px 10px", borderRadius:7, border:`1px solid ${mode==="new"?C.accentBorder:C.border}`, background:mode==="new"?C.accentBg:C.surface2, color:mode==="new"?C.accent:C.textDim, fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:"inherit" }}>
+            <FolderPlus size={13}/>New Workspace
+          </button>
+          <button onClick={()=>setMode("existing")} disabled={!hasExisting}
+            style={{ flex:1, display:"flex", alignItems:"center", justifyContent:"center", gap:6, padding:"8px 10px", borderRadius:7, border:`1px solid ${mode==="existing"?C.accentBorder:C.border}`, background:mode==="existing"?C.accentBg:C.surface2, color:mode==="existing"?C.accent:C.textDim, fontSize:12, fontWeight:600, cursor:hasExisting?"pointer":"not-allowed", fontFamily:"inherit", opacity:hasExisting?1:.5 }}>
+            <FolderOpen size={13}/>Existing Workspace
+          </button>
+        </div>
+
+        {mode==="new" ? (
+          <div style={{ marginBottom:16 }}>
+            <label style={{ fontSize:11, color:C.textDim, marginBottom:5, display:"block" }}>Workspace name</label>
+            <input value={name} onChange={e=>setName(e.target.value)} autoFocus style={inp}/>
+          </div>
+        ) : (
+          <div style={{ marginBottom:16 }}>
+            <label style={{ fontSize:11, color:C.textDim, marginBottom:5, display:"block" }}>Add to</label>
+            <select value={existingId} onChange={e=>setExisting(e.target.value)} style={inp}>
+              {(projects||[]).map(p=>(<option key={p.id} value={p.id}>{p.name}</option>))}
+            </select>
+          </div>
+        )}
+
+        {/* Pin to Home */}
+        <label style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 12px", background:C.surface2, border:`1px solid ${C.border}`, borderRadius:8, cursor:"pointer", marginBottom:12 }}>
+          <input type="checkbox" checked={pinned} onChange={e=>setPinned(e.target.checked)} style={{accentColor:C.accent}}/>
+          <Home size={14} color={pinned?C.accent:C.textDim}/>
+          <div style={{flex:1}}>
+            <div style={{ fontSize:12, fontWeight:600, color:C.text }}>Show on Home</div>
+            <div style={{ fontSize:10, color:C.textDim }}>Adds a card to the Home carousel with the latest result</div>
+          </div>
+        </label>
+
+        {/* Schedule */}
+        <div style={{ marginBottom:20 }}>
+          <label style={{ fontSize:11, color:C.textDim, marginBottom:5, display:"block" }}>Keep it refreshed</label>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+            <select value={freq} onChange={e=>setFreq(e.target.value)} style={inp}>
+              <option value="none">Run once, don't repeat</option>
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+            </select>
+            {freq!=="none" && <input type="time" value={time} onChange={e=>setTime(e.target.value)} style={inp}/>}
+          </div>
+        </div>
+
+        <div style={{ display:"flex", gap:10 }}>
+          <button onClick={submit} disabled={mode==="existing"&&!existingId}
+            style={{ flex:1, padding:"10px", background:C.accent, color:"#fff", border:"none", borderRadius:8, fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:"inherit" }}>
+            Save Configuration
+          </button>
+          <button onClick={onClose}
+            style={{ padding:"10px 18px", background:"transparent", color:C.textDim, border:`1px solid ${C.border}`, borderRadius:8, fontSize:13, cursor:"pointer", fontFamily:"inherit" }}>
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Agent card ───────────────────────────────────────────────────────────────────
+function AgentCard({ agent, isRunning, isScheduled, onRunOrDrillDown, onSchedule, onConfigure }) {
+  const C = useTheme();
 
   return (
     <div style={{ background:C.surface,border:`1px solid ${isRunning?C.teal:C.border}`,borderRadius:10,padding:13,transition:"border-color .2s" }}>
@@ -194,7 +310,8 @@ function AgentCard({ agent, isRunning, isScheduled, onRunOrDrillDown, onSchedule
         <div style={{ fontSize:12,fontWeight:600,color:C.accent,lineHeight:1.35,flex:1,marginRight:8 }}>{agent.name}</div>
         <ScopeBadge scope={agent.scope}/>
       </div>
-      <div style={{ fontSize:11,color:C.textDim,lineHeight:1.55,marginBottom:8 }}>{agent.desc}</div>
+      <div style={{ fontSize:11,color:C.textDim,lineHeight:1.55,marginBottom:6 }}>{agent.desc}</div>
+      {agent.domain && <div style={{ marginBottom:8 }}><DomainBadge domain={agent.domain}/></div>}
       <div style={{ fontSize:10,color:isRunning?C.teal:C.textDim,marginBottom:10,display:"flex",alignItems:"center",gap:4 }}>
         {isRunning
           ? <><span style={{ width:6,height:6,borderRadius:"50%",background:C.teal,display:"inline-block",animation:"accDot 1.2s infinite" }}/>Running now</>
@@ -203,20 +320,24 @@ function AgentCard({ agent, isRunning, isScheduled, onRunOrDrillDown, onSchedule
           : <><Clock size={10}/>Never run</>}
       </div>
       <div style={{display:"flex",gap:6}}>
-        <button onClick={()=>onRunOrDrillDown(agent)} disabled={isRunning||!agent.runnable}
-          style={{ padding:"5px 10px",background:isRunning?C.tealBg:C.accent,color:isRunning?C.teal:"#fff",border:isRunning?`1px solid ${C.tealBorder}`:"none",borderRadius:6,fontSize:11,fontWeight:600,cursor:isRunning||!agent.runnable?"default":"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",gap:4,opacity:!agent.runnable?.5:1 }}>
-          {isRunning?<><Pause size={10}/>Running…</>:<><Play size={10}/>{btnLabel}</>}
+        <button onClick={()=>onRunOrDrillDown(agent)} disabled={isRunning||!agent.runnable} title="Run once, now"
+          style={{ flex:1,padding:"6px 10px",background:isRunning?C.tealBg:C.accent,color:isRunning?C.teal:"#fff",border:isRunning?`1px solid ${C.tealBorder}`:"none",borderRadius:6,fontSize:11,fontWeight:600,cursor:isRunning||!agent.runnable?"default":"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",justifyContent:"center",gap:4,opacity:!agent.runnable?.5:1 }}>
+          {isRunning?<><Pause size={10}/>Running…</>:<><Play size={10}/>Run</>}
         </button>
-        <button onClick={()=>onSchedule(agent.id)}
-          style={{ padding:"5px 10px",background:"transparent",color:C.accent,border:`1px solid ${C.accentBorder}`,borderRadius:6,fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",gap:4 }}>
-          <Calendar size={10}/>Schedule
+        <button onClick={()=>onSchedule(agent.id)} title="Schedule a recurring run"
+          style={{ width:30,padding:"6px 0",background:"transparent",color:C.accent,border:`1px solid ${C.accentBorder}`,borderRadius:6,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center" }}>
+          <Calendar size={12}/>
+        </button>
+        <button onClick={()=>onConfigure(agent)} disabled={!agent.runnable} title="Add to a Workspace and show on Home"
+          style={{ width:30,padding:"6px 0",background:"transparent",color:C.textMid,border:`1px solid ${C.border2}`,borderRadius:6,cursor:agent.runnable?"pointer":"not-allowed",display:"flex",alignItems:"center",justifyContent:"center",opacity:!agent.runnable?.5:1 }}>
+          <Home size={12}/>
         </button>
       </div>
     </div>
   );
 }
 
-// ── Activity row ─────────────────────────────────────────────────────────────────────────────────
+// ── Activity row ──────────────────────────────────────────────────────────────────
 function ActivityRow({ job, onViewReport, onDelete }) {
   const C = useTheme();
   const S = {
@@ -256,7 +377,7 @@ function ActivityRow({ job, onViewReport, onDelete }) {
   );
 }
 
-// ── Reports panel ─────────────────────────────────────────────────────────────────────────────────
+// ── Reports panel ──────────────────────────────────────────────────────────────────
 function ReportsPanel({ reports, onView }) {
   const C = useTheme();
   if (!reports?.length) return <div style={{ padding:"40px 0",textAlign:"center",fontSize:13,color:C.textDim }}>No results yet. Run an Assistant to generate one.</div>;
@@ -292,12 +413,14 @@ function ReportsPanel({ reports, onView }) {
 }
 
 // ── Main ─────────────────────────────────────────────────────────────────────────────────
-export default function AgentControlCenter({ agentData, liveJobs=[], reports, onDeleteReport, workstationClient, onViewReport, getReportContent, initialTab, onRunAgent }) {
+export default function AgentControlCenter({ agentData, liveJobs=[], reports, onDeleteReport, workstationClient, onViewReport, getReportContent, initialTab, onRunAgent, projects=[], onConfigureAgent }) {
   const C = useTheme();
   const [tab,          setTab]         = useState(initialTab || "agents");
   const [scopeFilter,  setScope]       = useState("all");
+  const [domainFilter, setDomain]      = useState("all");
   const [schedulingId, setSchedulingId]= useState(null);
   const [drillAgent,   setDrillAgent]  = useState(null);
+  const [configAgent,  setConfigAgent] = useState(null);
 
   // When a new job is triggered externally (e.g. from Insights NBA), jump to Activity tab
   useEffect(() => {
@@ -308,8 +431,18 @@ export default function AgentControlCenter({ agentData, liveJobs=[], reports, on
   const [scheduledIds, setSchedIds]    = useState({});
   const [toast,        setToast]       = useState(null);
 
-  const allAgents = Object.entries(agentData||{}).filter(([k])=>k.startsWith("sub-ag-")).flatMap(([,items])=>items.filter(i=>i.runnable));
-  const filtered  = scopeFilter==="all"?allAgents:scopeFilter==="book"?allAgents.filter(a=>a.scope==="book"||a.scope==="both"):allAgents.filter(a=>a.scope==="individual"||a.scope==="both");
+  // Map each "sub-ag-XX" group key to its parent root agent's domain
+  const domainByGroupKey = Object.fromEntries(
+    (agentData?.root || []).map(r => [r.subs, r.domain])
+  );
+
+  const allAgents = Object.entries(agentData||{})
+    .filter(([k])=>k.startsWith("sub-ag-"))
+    .flatMap(([k,items])=>items.filter(i=>i.runnable).map(i=>({ ...i, domain: domainByGroupKey[k] })));
+
+  const filtered = allAgents
+    .filter(a => scopeFilter==="all" || (scopeFilter==="book" ? (a.scope==="book"||a.scope==="both") : (a.scope==="individual"||a.scope==="both")))
+    .filter(a => domainFilter==="all" || a.domain===domainFilter);
 
   function showToast(msg){setToast(msg);setTimeout(()=>setToast(null),4000);}
 
@@ -343,6 +476,14 @@ export default function AgentControlCenter({ agentData, liveJobs=[], reports, on
     setScheduled(p=>[job,...p]);setSchedIds(p=>({...p,[agent.id]:true}));
     setSchedulingId(null);setTab("activity");
     showToast(`${agent.name} scheduled for ${details.date} · ${details.time}`);
+  }
+
+  // Configure: hand off to parent, which creates/updates a Workspace, runs the
+  // agent into it, and applies the pin-to-Home + schedule settings.
+  function handleConfigureConfirm(cfg) {
+    if (onConfigureAgent) onConfigureAgent(configAgent, cfg);
+    setConfigAgent(null);
+    showToast(cfg.pinnedToHome ? `${configAgent.name} configured — see it on Home` : `${configAgent.name} added to "${cfg.workspaceName}"`);
   }
 
   // View from Activity: regenerate from job metadata
@@ -399,7 +540,7 @@ export default function AgentControlCenter({ agentData, liveJobs=[], reports, on
 
       <div style={{ padding:"14px 20px 0",flexShrink:0 }}>
         <div style={{ fontSize:18,fontWeight:700,color:C.text }}>Command Center</div>
-        <div style={{ fontSize:12,color:C.textDim,marginTop:2 }}>Run, schedule, and monitor your Assistants</div>
+        <div style={{ fontSize:12,color:C.textDim,marginTop:2 }}>Run, schedule, and configure your Assistants</div>
       </div>
 
       <div style={{ display:"flex",alignItems:"center",borderBottom:`1px solid ${C.border}`,margin:"10px 20px 0",flexShrink:0 }}>
@@ -421,6 +562,25 @@ export default function AgentControlCenter({ agentData, liveJobs=[], reports, on
                 onConfirm={d=>handleScheduleConfirm(allAgents.find(a=>a.id===schedulingId),d)}
                 onCancel={()=>setSchedulingId(null)}/>
             )}
+
+            {/* Domain filter chips — same 7 categories & colors as Insights */}
+            <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:10 }}>
+              <button onClick={()=>setDomain("all")}
+                style={{ padding:"5px 12px", borderRadius:20, fontSize:11, fontWeight:600, cursor:"pointer", fontFamily:"inherit", border:`1px solid ${domainFilter==="all"?C.accentBorder:C.border}`, background:domainFilter==="all"?C.accentBg:C.surface, color:domainFilter==="all"?C.accent:C.textDim }}>
+                All Domains
+              </button>
+              {INSIGHT_DOMAINS.map(d=>{
+                const clr = C[d.color] || C.accent;
+                const active = domainFilter===d.key;
+                return (
+                  <button key={d.key} onClick={()=>setDomain(d.key)}
+                    style={{ display:"flex", alignItems:"center", gap:5, padding:"5px 12px", borderRadius:20, fontSize:11, fontWeight:600, cursor:"pointer", fontFamily:"inherit", border:`1px solid ${active?clr:C.border}`, background:active?(C[`${d.color}Bg`]||C.accentBg):C.surface, color:active?clr:C.textDim }}>
+                    <span style={{ width:6, height:6, borderRadius:"50%", background:clr, display:"inline-block" }}/>{d.label}
+                  </button>
+                );
+              })}
+            </div>
+
             <div style={{ display:"flex",background:C.surface2,border:`1px solid ${C.border}`,borderRadius:8,padding:2,marginBottom:14,width:"fit-content" }}>
               {["all","book","individual"].map(k=>(
                 <button key={k} onClick={()=>setScope(k)}
@@ -429,13 +589,18 @@ export default function AgentControlCenter({ agentData, liveJobs=[], reports, on
                 </button>
               ))}
             </div>
-            <div style={{ display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))",gap:10 }}>
-              {filtered.map(a=>(
-                <AgentCard key={a.id} agent={a} isRunning={!!runningIds[a.id]} isScheduled={!!scheduledIds[a.id]}
-                  onRunOrDrillDown={handleRunOrDrillDown}
-                  onSchedule={id=>setSchedulingId(schedulingId===id?null:id)}/>
-              ))}
-            </div>
+            {!filtered.length ? (
+              <div style={{ padding:"40px 0",textAlign:"center",fontSize:13,color:C.textDim }}>No Assistants match this filter.</div>
+            ) : (
+              <div style={{ display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))",gap:10 }}>
+                {filtered.map(a=>(
+                  <AgentCard key={a.id} agent={a} isRunning={!!runningIds[a.id]} isScheduled={!!scheduledIds[a.id]}
+                    onRunOrDrillDown={handleRunOrDrillDown}
+                    onSchedule={id=>setSchedulingId(schedulingId===id?null:id)}
+                    onConfigure={setConfigAgent}/>
+                ))}
+              </div>
+            )}
           </>
         )}
 
@@ -466,6 +631,11 @@ export default function AgentControlCenter({ agentData, liveJobs=[], reports, on
           </>
         )}
       </div>
+
+      {configAgent && (
+        <ConfigureModal agent={configAgent} projects={projects}
+          onConfirm={handleConfigureConfirm} onClose={()=>setConfigAgent(null)}/>
+      )}
     </div>
   );
 }
