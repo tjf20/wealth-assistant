@@ -1,5 +1,5 @@
 // client/src/hooks/useProjects.js
-// Persists projects to localStorage so they survive page refreshes.
+// Persists projects (Workspaces) to localStorage so they survive page refreshes.
 
 import { useState, useEffect, useCallback } from "react";
 
@@ -8,7 +8,14 @@ const STORAGE_KEY = "wa_projects_v1";
 function loadFromStorage() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
+    const parsed = raw ? JSON.parse(raw) : [];
+    // Backfill new fields for workspaces created before this schema existed
+    return parsed.map(p => ({
+      context: "",
+      pinnedToHome: false,
+      schedule: null, // { freq: "daily"|"weekly", time: "08:00" } | null
+      ...p,
+    }));
   } catch {
     return [];
   }
@@ -35,6 +42,9 @@ export function useProjects() {
       id: `proj-${Date.now()}`,
       name,
       createdAt: new Date().toISOString(),
+      context: "",        // free-text notes/instructions the FA can set — "what this workspace is for"
+      pinnedToHome: false,// shows a compact card on Home when true
+      schedule: null,     // { freq: "daily"|"weekly", time: "08:00" } | null
       clients: [],     // [{ clientId, name, cp, type, phone, producerId, accounts }]
       documents: [],   // [{ id, name, size, uploadedAt, dataUrl }]
       results: [],     // [{ id, agentName, agentId, ranAt, summary, rows, status }]
@@ -49,6 +59,21 @@ export function useProjects() {
 
   const renameProject = useCallback((projectId, name) => {
     setProjects(prev => prev.map(p => p.id === projectId ? { ...p, name } : p));
+  }, []);
+
+  // Free-text context/instructions — "what this workspace is for"
+  const updateProjectContext = useCallback((projectId, context) => {
+    setProjects(prev => prev.map(p => p.id === projectId ? { ...p, context } : p));
+  }, []);
+
+  // Pin/unpin the compact card on Home
+  const setProjectHomePinned = useCallback((projectId, pinnedToHome) => {
+    setProjects(prev => prev.map(p => p.id === projectId ? { ...p, pinnedToHome } : p));
+  }, []);
+
+  // schedule: { freq: "daily"|"weekly", time: "08:00" } | null
+  const setProjectSchedule = useCallback((projectId, schedule) => {
+    setProjects(prev => prev.map(p => p.id === projectId ? { ...p, schedule } : p));
   }, []);
 
   const addClientsToProject = useCallback((projectId, newClients) => {
@@ -98,6 +123,9 @@ export function useProjects() {
     createProject,
     deleteProject,
     renameProject,
+    updateProjectContext,
+    setProjectHomePinned,
+    setProjectSchedule,
     addClientsToProject,
     removeClientFromProject,
     addDocumentToProject,
