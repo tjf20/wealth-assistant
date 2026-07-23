@@ -1,4 +1,7 @@
 // client/src/components/WealthAssistant.jsx
+// v8 changes:
+//   • Chat panel now starts collapsed; auto-expands whenever the user lands on
+//     Command Center (navView "agents"), from any entry point
 // v7 changes:
 //   • Insights is now the sole landing workspace — replaces the old "Home" canvas
 //     and the small bell-icon Insights drawer entirely (see InsightsHome.jsx)
@@ -39,7 +42,7 @@ function findAgentName(agentData, agentId) {
   return agentId;
 }
 
-// ── CSS var builder — includes hero card vars ───────────────────────────────────────────────────
+// ── CSS var builder — includes hero card vars ────────────────────────────────────────────────────
 function buildCSSVars(isDark) {
   if (isDark) return `
     --c-bg:#0a0b0d;--c-surface:#0f1014;--c-surface2:#13151e;--c-surface3:#181a22;
@@ -69,13 +72,13 @@ function buildCSSVars(isDark) {
   `;
 }
 
-// ── Main ────────────────────────────────────────────────────────────────────────────────────────────────────
+// ── Main ─────────────────────────────────────────────────────────────────────────────────────────────────────────
 export default function WealthAssistant({ agentData }) {
   const advisorName = "James Miller";
 
   const [navView,          setNavView]       = useState("insights");
   const [theme,            setTheme]         = useState("dark");
-  const [chatCollapsed,    setChatCollapsed] = useState(false);
+  const [chatCollapsed,    setChatCollapsed] = useState(true);
   const [insightCount,     setInsightCount]  = useState(2);
   const [activeProject,    setActiveProject] = useState(null);
   const [workstationClient,setWsClient]      = useState(null);
@@ -127,7 +130,13 @@ export default function WealthAssistant({ agentData }) {
     poll(); const id = setInterval(poll, 30000); return ()=>clearInterval(id);
   }, []);
 
-  // ── Run agent for selected clients ────────────────────────────────────────────────────────
+  // Auto-expand the chat panel whenever Command Center becomes the active view —
+  // covers the sidebar click, My Clients bulk-run redirect, and Insights "Run" redirect alike.
+  useEffect(() => {
+    if (navView === "agents") setChatCollapsed(false);
+  }, [navView]);
+
+  // ── Run agent for selected clients ──────────────────────────────────────────────────
   function handleClientsRunAgent(clients, agentId, agentName) {
     const resolved = agentName || findAgentName(agentData, agentId);
     const newJobs  = clients.map(c => ({
@@ -192,7 +201,7 @@ export default function WealthAssistant({ agentData }) {
     }, 3500);
   }
 
-  // ── Pin to Insights ───────────────────────────────────────────────────────────────────
+  // ── Pin to Insights ───────────────────────────────────────────────────────────
   function handlePinToHome(report) {
     const entry = {
       id: `pin-${Date.now()}`,
