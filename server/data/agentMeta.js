@@ -4,60 +4,65 @@
 //   "book"       — runs across the entire book of business only
 //   "individual" — runs against a single selected client/account
 //   "both"       — can run either way (FA chooses at run time)
+// domain: which of the 7 Insights categories this root agent belongs to —
+//   Client Financials, Prospecting, Client Deepening, Planning, Investments,
+//   Supervisory, My Practice. Lets Command Center filter by the same
+//   categories Insights groups by. Workflows (sub-ag-* items) inherit their
+//   parent root agent's domain client-side via the `subs` key match.
 
 const AGENT_META = {
   root: [
     {
       id: "ag-01", name: "Portfolio Financials Intelligence", type: "agent",
-      icon: "BarChart2", color: "blue", scope: "both",
+      icon: "BarChart2", color: "blue", scope: "both", domain: "Client Financials",
       desc: "Realized gains, tax lots, holdings & activity",
       subs: "sub-ag-01", runnable: true, lastRun: "14 min ago", lastRunState: "done",
     },
     {
       id: "ag-02", name: "My Clients & Prospects", type: "agent",
-      icon: "Users", color: "teal", scope: "book",
+      icon: "Users", color: "teal", scope: "book", domain: "My Practice",
       desc: "Client search, AUM view, household overview & prospect pipeline",
       subs: "sub-ag-02", runnable: false,
     },
     {
       id: "ag-03", name: "Investment Assistant", type: "agent",
-      icon: "TrendingUp", color: "blue", scope: "both",
+      icon: "TrendingUp", color: "blue", scope: "both", domain: "Investments",
       desc: "Portfolio analysis, allocation modeling & rebalancing recommendations",
       subs: "sub-ag-03", runnable: false,
     },
     {
       id: "ag-04", name: "Wealth Planning Assistant", type: "agent",
-      icon: "Map", color: "purple", scope: "individual",
+      icon: "Map", color: "purple", scope: "individual", domain: "Planning",
       desc: "Retirement, estate, education & tax planning workflows",
       subs: "sub-ag-04", runnable: false,
     },
     {
       id: "ag-05", name: "Client Acquisition Assistant", type: "agent",
-      icon: "UserPlus", color: "teal", scope: "book",
+      icon: "UserPlus", color: "teal", scope: "book", domain: "Prospecting",
       desc: "Prospect scoring, outreach drafts & referral opportunity surfacing",
       subs: "sub-ag-05", runnable: false,
     },
     {
       id: "ag-06", name: "Client Deepening Assistant", type: "agent",
-      icon: "Gift", color: "coral", scope: "both",
+      icon: "Gift", color: "coral", scope: "both", domain: "Client Deepening",
       desc: "Opportunities, product recommendations & relationship insights",
       subs: "sub-ag-06", runnable: false,
     },
     {
       id: "ag-07", name: "Salesforce AgentForce", type: "agent",
-      icon: "Cloud", color: "blue", scope: "both",
+      icon: "Cloud", color: "blue", scope: "both", domain: "My Practice",
       desc: "CRM, notes, activity logging, opportunity & pipeline tracking",
       subs: "sub-ag-07", runnable: false,
     },
     {
       id: "ag-08", name: "Market Data Intelligence", type: "agent",
-      icon: "Activity", color: "amber", scope: "book",
+      icon: "Activity", color: "amber", scope: "book", domain: "My Practice",
       desc: "Live market data, economic indicators & personalized news digest",
       subs: "sub-ag-08", runnable: false,
     },
     {
       id: "ag-09", name: "My Practice", type: "agent",
-      icon: "Briefcase", color: "purple", scope: "book",
+      icon: "Briefcase", color: "purple", scope: "book", domain: "My Practice",
       desc: "Book of business KPIs, revenue tracking & practice performance",
       subs: "sub-ag-09", runnable: false,
     },
